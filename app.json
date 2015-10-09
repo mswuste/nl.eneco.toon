@@ -1,0 +1,25 @@
+{
+  "id": "nl.eneco.toon",
+  "version": "1.0.0",
+  "compatibility": ">=0.1.0",
+  "name": {
+    "en": "Toon by Eneco",
+    "nl": "Toon van Eneco"
+  },
+  "description": {
+    "en": "Toon the smart thermostat from Eneco",
+    "nl": "Toon de slimme thermostaat van Eneco"
+  },
+  "author": {
+    "name": "Robin Bolscher",
+    "email": "robin@athom.nl"
+  },
+  "category": "climate",
+  "permissions": [
+  ],
+  "speech": [
+  ],
+
+  "flow": {
+  }
+}

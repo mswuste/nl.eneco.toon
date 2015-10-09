@@ -1,0 +1,8 @@
+{
+  "settings": {
+    "title": "Toon instellingen",
+    "login_intro": "Om Homey te verbinden met Toon kun je hieronder de inloggegevens van de Toon smartphone applicatie invoeren.",
+    "username": "Gebruikersnaam",
+    "password": "Wachtwoord"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "settings": {
+    "title": "Toon settings",
+    "login_intro": "To let Toon connect with Homey please fill in the credentials of the Toon smartphone application below.",
+    "username": "Username",
+    "password": "Password"
+  }
+}

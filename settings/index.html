@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+</head>
+<body>
+
+<h1 data-i18n="settings.title"></h1>
+
+<p data-i18n="settings.login_intro"></p>
+
+<fieldset>
+    <legend>Toon App login</legend>
+
+    <div class="field row">
+        <label for="toon_username" data-i18n="settings.username"></label>
+        <input id="toon_username" type="text" value=""/>
+    </div>
+    <div class="field row">
+        <label for="toon_password" data-i18n="settings.password"></label>
+        <input id="toon_password" type="text" value=""/>
+    </div>
+
+</fieldset>
+
+<button class="right" onclick="save()">Save changes</button>
+
+<script type="text/javascript">
+
+    // Initialize Homey
+    function onHomeyReady () {
+        Homey.ready();
+
+        // Fill input with already stored settings
+        if ( Homey.settings.toon_username ) {
+            document.getElementById( 'toon_username' ).value = Homey.settings.toon_username;
+        }
+        if ( Homey.settings.toon_password ) {
+            document.getElementById( 'toon_password' ).value = Homey.settings.toon_password;
+        }
+    }
+
+    function save () {
+        Homey.settings.toon_username = document.getElementById( 'toon_username' ).value;
+        Homey.settings.toon_password = document.getElementById( 'toon_password' ).value;
+    }
+</script>
+
+</body>
+</html>
