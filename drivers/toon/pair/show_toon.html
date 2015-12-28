@@ -1,0 +1,17 @@
+<script type="application/javascript">
+    Homey.emit( 'get_toon', function ( err, device ) {
+        if ( !err && device ) {
+            Homey.setTitle( __( 'pair.found_toon' ) );
+            $("#toon_explained").show();
+            Homey.addDevice(device);
+        } else {
+            Homey.setTitle(__('pair.no_toon'));
+            $("#no_toon_explained").show();
+        }
+    } );
+</script>
+<p id="toon_explained" data-i18n="pair.found_toon_explained" style="display:none"></p>
+<div id="no_toon_explained" style="display:none">
+    <p data-i18n="pair.no_toon_explained"></p>
+    <button type="button" onclick="Homey.showView('start')" data-i18n="pair.retry"></button>
+</div>

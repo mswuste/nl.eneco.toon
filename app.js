@@ -1,7 +1,7 @@
 "use strict";
 
 var self = module.exports = {
-	init: function () {
+    init: function () {
 
-	}
+    }
 };

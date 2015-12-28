@@ -7,7 +7,7 @@
     "nl": "Toon van Eneco"
   },
   "description": {
-    "en": "Toon the smart thermostat from Eneco",
+    "en": "Toon the smart thermostat by Eneco",
     "nl": "Toon de slimme thermostaat van Eneco"
   },
   "author": {
@@ -19,7 +19,35 @@
   ],
   "speech": [
   ],
-
+  "drivers": [
+    {
+      "id": "toon",
+      "name": {
+        "en": "Toon by Eneco",
+        "nl": "Toon van Eneco"
+      },
+      "images": {
+        "large": "drivers/toon/assets/images/large.jpg",
+        "small": "drivers/toon/assets/images/small.jpg"
+      },
+      "class": "thermostat",
+      "capabilities": [
+        "target_temperature",
+        "measure_temperature"
+      ],
+      "pair": [
+        {
+          "id": "start",
+          "navigation": {
+            "next": "show_toon"
+          }
+        },
+        {
+          "id": "show_toon"
+        }
+      ]
+    }
+  ],
   "flow": {
   }
 }

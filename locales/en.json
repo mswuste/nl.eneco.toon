@@ -1,8 +1,13 @@
 {
-  "settings": {
-    "title": "Toon settings",
-    "login_intro": "To let Toon connect with Homey please fill in the credentials of the Toon smartphone application below.",
+  "pair": {
+    "login": "Please login",
+    "login_explained": "To let Toon connect with Homey please fill in the credentials of your Toon account.",
     "username": "Username",
-    "password": "Password"
+    "password": "Password",
+    "found_toon": "Homey found Toon!",
+    "no_toon": "Homey couldn't find Toon...",
+    "no_toon_explained": "Make sure your login credentials are valid and try again.",
+    "found_toon_explained": "Toon has been added as a device to your Homey!",
+    "retry": "Retry"
   }
 }

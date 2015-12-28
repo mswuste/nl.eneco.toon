@@ -1,8 +1,13 @@
 {
-  "settings": {
-    "title": "Toon instellingen",
-    "login_intro": "Om Homey te verbinden met Toon kun je hieronder de inloggegevens van de Toon smartphone applicatie invoeren.",
+  "pair": {
+    "login": "Inloggen",
+    "login_explained": "Om Homey te verbinden met Toon moet je eerst hieronder de inloggegevens van van je Toon account invoeren.",
     "username": "Gebruikersnaam",
-    "password": "Wachtwoord"
+    "password": "Wachtwoord",
+    "found_toon": "Homey heeft Toon gevonden!",
+    "no_toon": "Homey kon Toon niet vinden...",
+    "no_toon_explained": "Controleer of je inloggegevens correct zijn en probeer opnieuw.",
+    "found_toon_explained": "Toon is toegevoegd als apparaat aan je Homey!",
+    "retry": "Probeer opnieuw"
   }
 }
