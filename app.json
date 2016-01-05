@@ -11,8 +11,7 @@
     "nl": "Toon de slimme thermostaat van Eneco"
   },
   "author": {
-    "name": "Robin Bolscher",
-    "email": "robin@athom.nl"
+    "name": "Athom B.V."
   },
   "category": "climate",
   "permissions": [

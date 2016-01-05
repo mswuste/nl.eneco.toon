@@ -1,31 +1,19 @@
 <p data-i18n="pair.login_explained"></p>
 
-<fieldset>
-    <legend>Login</legend>
-
-    <div class="field row">
-        <label for="toon_username" data-i18n="pair.username"></label>
-        <input id="toon_username" type="text" value=""/>
-    </div>
-    <div class="field row">
-        <label for="toon_password" data-i18n="pair.password"></label>
-        <input id="toon_password" type="password" value=""/>
-    </div>
-
-</fieldset>
-
 <script type="application/javascript">
     Homey.setTitle(__('pair.login'));
 
-    Homey.emit('start', function (err, success) {
-
-        // Add listener to next click
-        var myDiv = $('button[data-href="show_toon"]');
-        myDiv.on("click", function () {
-            Homey.emit('store_credentials', {
-                username: $("#toon_username").val(),
-                password: $("#toon_password").val()
-            });
-        });
+    var loginUrl;
+    Homey.emit('start', {}, function (err, url) {
+        loginUrl = url;
+    });
+    Homey.on("authenticated", function(token){
+        if (token) {
+            Homey.showView("show_toon");
+        }
     });
 </script>
+
+<fieldset>
+    <button id="authentication_button" onclick="window.open(loginUrl);">Login</button>
+</fieldset>

@@ -1,13 +1,15 @@
 {
   "pair": {
     "login": "Please login",
-    "login_explained": "To let Toon connect with Homey please fill in the credentials of your Toon account.",
+    "login_explained": "To let Toon connect with Homey please login with the credentials of your Toon account.",
     "username": "Username",
     "password": "Password",
     "found_toon": "Homey found Toon!",
     "no_toon": "Homey couldn't find Toon...",
     "no_toon_explained": "Make sure your login credentials are valid and try again.",
     "found_toon_explained": "Toon has been added as a device to your Homey!",
-    "retry": "Retry"
+    "retry": "Retry",
+    "installed_toon": "This Toon was already installed!",
+    "installed_toon_explained": "It seems that the Toon connected to this account was already installed on this Homey, please try a different account if you would like to add another Toon device."
   }
 }
