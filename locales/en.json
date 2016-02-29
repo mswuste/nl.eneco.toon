@@ -6,7 +6,7 @@
     "password": "Password",
     "found_toon": "Homey found Toon!",
     "no_toon": "Homey couldn't find Toon...",
-    "no_toon_explained": "Make sure your login credentials are valid and try again.",
+    "no_toon_explained": "It appears there is no new Toon device to be found.",
     "found_toon_explained": "Toon has been added as a device to your Homey!",
     "retry": "Retry",
     "installed_toon": "This Toon was already installed!",

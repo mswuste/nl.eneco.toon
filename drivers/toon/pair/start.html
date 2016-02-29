@@ -2,18 +2,21 @@
 
 <script type="application/javascript">
     Homey.setTitle(__('pair.login'));
+    document.getElementById("authentication_button").disabled = true;
 
     var loginUrl;
     Homey.emit('start', {}, function (err, url) {
         loginUrl = url;
+        document.getElementById("authentication_button").disabled = false;
     });
-    Homey.on("authenticated", function(token){
+    Homey.on("authenticated", function (token) {
         if (token) {
             Homey.showView("show_toon");
+            console.log("go to show toon");
         }
     });
 </script>
 
 <fieldset>
-    <button id="authentication_button" onclick="window.open(loginUrl);">Login</button>
+    <button class="button" id="authentication_button" onclick="window.open(loginUrl);">Login</button>
 </fieldset>

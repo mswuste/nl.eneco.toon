@@ -1,30 +1,39 @@
 <script type="application/javascript">
-    Homey.emit( 'get_toon', function ( err, device ) {
-        console.log(err);
-        console.log(device);
-        if ( !err && device ) {
-            Homey.setTitle( __( 'pair.found_toon' ) );
-            $("#toon_explained").show();
-            Homey.addDevice(device, function(err, result){
-                if(!err && result){
-                    Homey.emit("add_toon", device);
-                }
-            });
-        } else if ( err && device ) {
+    Homey.emit('get_toon', function (err, data) {
+        console.log("GOT TOON:");
+        console.log(data);
+        if (!err && data) {
+            if (data.length > 1) {
+                Homey.showView("list_toon_devices");
+                Homey.emit("get_devices", data);
+            }
+            else if (data.length == 1) {
+                Homey.setTitle(__('pair.found_toon'));
+                $("#toon_explained").show();
+                Homey.addDevice(data[0], function (err, result) {
+                    if (!err && result) {
+                        Homey.emit("add_toon", data[0]);
+                    }
+                });
+            } else {
+                Homey.setTitle(__('pair.no_toon'));
+                $("#no_toon_explained").show();
+            }
+        }
+        else if (err && data) {
             Homey.setTitle(__('pair.installed_toon'));
             $("#toon_installed_explained").show();
-        } else if (err && !device){
+        }
+        else if (err && !data) {
             Homey.setTitle(__('pair.no_toon'));
             $("#no_toon_explained").show();
         }
-    } );
+    });
 </script>
 <p id="toon_explained" data-i18n="pair.found_toon_explained" style="display:none"></p>
 <div id="toon_installed_explained" style="display:none">
     <p data-i18n="pair.installed_toon_explained"></p>
-    <button type="button" onclick="Homey.showView('start')" data-i18n="pair.retry"></button>
 </div>
 <div id="no_toon_explained" style="display:none">
     <p data-i18n="pair.no_toon_explained"></p>
-    <button type="button" onclick="Homey.showView('start')" data-i18n="pair.retry"></button>
 </div>

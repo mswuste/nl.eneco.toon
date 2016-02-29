@@ -14,6 +14,10 @@
     "name": "Athom B.V."
   },
   "category": "climate",
+  "images": {
+    "large": "assets/images/large.png",
+    "small": "assets/images/small.png"
+  },
   "permissions": [
   ],
   "speech": [
@@ -26,8 +30,8 @@
         "nl": "Toon van Eneco"
       },
       "images": {
-        "large": "drivers/toon/assets/images/large.jpg",
-        "small": "drivers/toon/assets/images/small.jpg"
+        "large": "drivers/toon/assets/images/large.png",
+        "small": "drivers/toon/assets/images/small.png"
       },
       "class": "thermostat",
       "capabilities": [
@@ -42,7 +46,18 @@
           }
         },
         {
+          "id": "list_toon_devices",
+          "template": "list_devices",
+          "navigation": {
+            "next": "add_toon"
+          }
+        },
+        {
           "id": "show_toon"
+        },
+        {
+          "id": "add_toon",
+          "template": "add_devices"
         }
       ]
     }
