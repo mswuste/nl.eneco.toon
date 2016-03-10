@@ -1,7 +1,5 @@
 <script type="application/javascript">
     Homey.emit('get_toon', function (err, data) {
-        console.log("GOT TOON:");
-        console.log(data);
         if (!err && data) {
             if (data.length > 1) {
                 Homey.showView("list_toon_devices");

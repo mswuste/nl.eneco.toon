@@ -21,7 +21,10 @@ module.exports.init = function (devices_data, callback) {
 	// Add device, if not already added
 	function addDevice(device_data) {
 		var toon = new Toon(Homey.env.TOON_KEY, Homey.env.TOON_SECRET);
+
 		if (Homey.manager('settings').get('toon_access_token') != null) toon.access_token = Homey.manager('settings').get('toon_access_token');
+		if (Homey.manager('settings').get('toon_refresh_token') != null) toon.refresh_token = Homey.manager('settings').get('toon_refresh_token');
+
 		toon.getAgreements(function (err, data) {
 
 			for (var i = 0; i < data.length; i++) {
@@ -68,15 +71,20 @@ module.exports.pair = function (socket) {
 
 			// After fetching authorization code
 			function (err, result) {
-				toon.getAccessToken(result, "https://callback.athom.com/oauth2/callback/", function (err, res, body) {
-					toon.access_token = JSON.parse(body).access_token;
+				toon.getAccessToken(result, "https://callback.athom.com/oauth2/callback/", function (err, result) {
+					toon.access_token = result.access_token;
+					toon.refresh_token = result.refresh_token;
+
 					Homey.manager("settings").set("toon_access_token", toon.access_token);
+					Homey.manager("settings").set("toon_refresh_token", toon.refresh_token);
+
 					socket.emit("authenticated", toon.access_token);
 				});
 			}
 		);
 	});
 
+	// Show list of devices
 	socket.on("list_devices", function (data, callback) {
 		socket.on("get_devices", function (devices) {
 			for (var i = 0; i < devices.length; i++) {
@@ -126,6 +134,7 @@ module.exports.pair = function (socket) {
 		toons.push({id: device.data.id, toon: toon});
 	});
 
+	// Add device to homey
 	socket.on("add_device", function (device, callback) {
 
 		// Set toon to the chosen device
@@ -148,28 +157,44 @@ module.exports.capabilities = {
 
 		get: function (device_data, callback) {
 			if (device_data instanceof Error) return callback(device_data);
+
+			// Get toon instance
 			var toon = getToon(device_data.id);
 			toon = (toon != null && toon.hasOwnProperty("toon")) ? toon.toon : null;
+
+			// Check if found
 			if (toon != null) {
+
+				// Fetch target temperature from api
 				toon.getTargetTemperature(function (err, result) {
 					callback(err, (result / 100));
 				});
 			}
 			else {
+
+				// Return error
 				callback(true, null);
 			}
 		},
 
 		set: function (device_data, temperature, callback) {
 			if (device_data instanceof Error) return callback(device_data);
+
+			// Get toon instance
 			var toon = getToon(device_data.id);
 			toon = (toon != null && toon.hasOwnProperty("toon")) ? toon.toon : null;
+
+			// Check if found
 			if (toon != null) {
+
+				// Set temperature via api
 				toon.setTemperature(Math.round(temperature * 2) / 2, function (err, result) {
 					callback(err, result);
 				});
 			}
 			else {
+
+				// Return error
 				callback(true, null);
 			}
 		}
@@ -179,14 +204,22 @@ module.exports.capabilities = {
 
 		get: function (device_data, callback) {
 			if (device_data instanceof Error) return callback(device_data);
+
+			// Get toon instance
 			var toon = getToon(device_data.id);
 			toon = (toon != null && toon.hasOwnProperty("toon")) ? toon.toon : null;
+
+			// Check if found
 			if (toon != null) {
+
+				// Fetch measured temperature
 				toon.getMeasureTemperature(function (err, result) {
 					callback(err, (result / 100));
 				});
 			}
 			else {
+
+				// Return error
 				callback(true, null);
 			}
 		}
@@ -195,29 +228,54 @@ module.exports.capabilities = {
 
 /**
  * Toon doesn't support realtime, therefore we have to poll
- * for changes considering the measured/target temperature
+ * for changes considering the measured and target temperature
  */
 function startPolling() {
+
+	// Poll every 20 seconds
 	setInterval(function () {
+
+		// Loop over all devices
 		for (var i = 0; i < devices.length; i++) {
 			var device = devices[i];
 
+			// Get toon object
 			var toon = getToon(device.data.id);
-			if (toon != null) toon = toon.toon;
+			if (toon != null) {
 
-			// Check for updated target temperature
-			toon.getTargetTemperature(function (err, result) {
-				var updatedTemperature = result / 100;
-				if (updatedTemperature != device.data.target_temperature) module.exports.realtime(device.data, "target_temperature", updatedTemperature);
-				device.data.target_temperature = result / 100;
-			});
+				// Get toon instance
+				toon = toon.toon;
 
-			// Check for updated measured temperature
-			toon.getMeasureTemperature(function (err, result) {
-				var updatedTemperature = result / 100;
-				if (updatedTemperature != device.data.measure_temperature) module.exports.realtime(device.data, "measure_temperature", updatedTemperature);
-				device.data.measure_temperature = result / 100;
-			});
+				// Check for updated target temperature
+				toon.getTargetTemperature(function (err, result) {
+					var updatedTemperature = result / 100;
+
+					// If updated temperature is not equal to prev temperature
+					if (updatedTemperature != device.data.target_temperature) {
+
+						// Do a realtime update
+						module.exports.realtime(device.data, "target_temperature", updatedTemperature);
+					}
+
+					// And store updated value
+					device.data.target_temperature = result / 100;
+				});
+
+				// Check for updated measured temperature
+				toon.getMeasureTemperature(function (err, result) {
+					var updatedTemperature = result / 100;
+
+					// If updated temperature is not equal to prev temperature
+					if (updatedTemperature != device.data.measure_temperature) {
+
+						// Do a realtime update
+						module.exports.realtime(device.data, "measure_temperature", updatedTemperature);
+					}
+
+					// And store updated value
+					device.data.measure_temperature = result / 100;
+				});
+			}
 		}
 	}, 20000);
 }
