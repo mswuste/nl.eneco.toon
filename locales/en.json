@@ -1,5 +1,7 @@
 {
+  "reconnecting": "Reconnecting...",
   "pair": {
+    "error": "Something went wrong, please try again...",
     "login": "Please login",
     "login_explained": "To let Toon connect with Homey please login with the credentials of your Toon account.",
     "username": "Username",

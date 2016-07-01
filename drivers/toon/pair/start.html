@@ -11,12 +11,12 @@
     });
     Homey.on("authenticated", function (token) {
         if (token) {
-            Homey.showView("show_toon");
-            console.log("go to show toon");
+            Homey.showView("list_toon_devices");
+        } else {
+            Homey.alert(__("pair.error"));
+            Homey.done();
         }
     });
 </script>
 
-<fieldset>
-    <button class="button" id="authentication_button" onclick="window.open(loginUrl);">Login</button>
-</fieldset>
+<button class="button" id="authentication_button" onclick="window.open(loginUrl);">Login</button>

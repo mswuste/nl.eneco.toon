@@ -40,10 +40,7 @@
       ],
       "pair": [
         {
-          "id": "start",
-          "navigation": {
-            "next": "show_toon"
-          }
+          "id": "start"
         },
         {
           "id": "list_toon_devices",
@@ -51,9 +48,6 @@
           "navigation": {
             "next": "add_toon"
           }
-        },
-        {
-          "id": "show_toon"
         },
         {
           "id": "add_toon",

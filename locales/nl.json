@@ -1,5 +1,7 @@
 {
+  "reconnecting": "Bezig met verbinden...",
   "pair": {
+    "error": "Er ging iets fout, probeer het opnieuw...",
     "login": "Inloggen",
     "login_explained": "Om Homey te verbinden met Toon moet je eerst inloggen met de gegevens van je Toon account.",
     "username": "Gebruikersnaam",
