@@ -401,7 +401,7 @@ function listenForEvents() {
 						}
 
 						// Emit init event
-						if (device.client) device.client.emit('initialized');
+						if (device.client && typeof device.state.targetTemperature === 'undefined') device.client.emit('initialized');
 
 						// Check if gasUsage is provided
 						if (data.body.updateDataSet.gasUsage) {
