@@ -26,9 +26,6 @@ module.exports.init = (devicesData, callback) => {
 	// Refresh tokens for each device
 	refreshTokenInterval();
 
-	// Start listening for events
-	listenForEvents();
-
 	// Create electricity usage insights log
 	Homey.manager('insights').createLog('electricity_usage', {
 		label: {
@@ -243,6 +240,8 @@ module.exports.added = (deviceData, callback) => {
  */
 module.exports.deleted = (deviceData) => {
 
+	listenForEvents();
+
 	// Reset array with device removed and deregister push event subscription
 	devices = devices.filter(device => {
 		if (device.data.id === deviceData.id && device.client) device.client.deregisterPushEvent();
@@ -326,111 +325,127 @@ function startRegisteringPushEvent(device) {
  */
 function listenForEvents() {
 
-	// Register webhook and listen for incoming events
-	Homey.manager('cloud').registerWebhook(Homey.env.TOON_WEBHOOK_ID, Homey.env.TOON_WEBHOOK_SECRET, {},
-		data => {
+	const deviceIDs = [];
+	if (devices) {
+		devices.forEach(device => {
+			deviceIDs.push(device.data.id);
+		});
+	}
 
-			// Check if data and body is provided
-			if (data && data.body) {
+	console.log('Toon: start listening for events for the following devices');
+	console.log(deviceIDs);
 
-				console.log(`Toon: incoming pushEvent data ${data.body.timeToLiveSeconds}`);
+	// First unregister webhook
+	Homey.manager('cloud').unregisterWebhook(Homey.env.TOON_WEBHOOK_ID, err => {
+		if (err) console.error(err, 'Error unregistering webhook');
+		else console.log('Unregistered webhook');
 
-				// If subscription has ended, restart subscription for all clients
-				if (typeof data.body.timeToLiveSeconds === 'undefined') {
-					startRegisteringPushEvent();
-				}
+		// Register webhook and listen for incoming events
+		Homey.manager('cloud').registerWebhook(Homey.env.TOON_WEBHOOK_ID, Homey.env.TOON_WEBHOOK_SECRET, { devices: deviceIDs },
+			data => {
 
-				// Get device
-				const device = getDevice(data.body.commonName);
-				if (device) {
+				// Check if data and body is provided
+				if (data && data.body) {
 
-					// Re-register push event when TTL is less than 15
-					if (data.body.timeToLiveSeconds <= 15) {
-						setTimeout(() => {
-							startRegisteringPushEvent(device);
-						}, 30000);
+					console.log(`Toon: incoming pushEvent data ${data.body.timeToLiveSeconds}`);
+
+					// If subscription has ended, restart subscription for all clients
+					if (typeof data.body.timeToLiveSeconds === 'undefined') {
+						startRegisteringPushEvent();
 					}
 
-					// Check for valid incoming data
-					if (data.body.updateDataSet && data.body.updateDataSet.thermostatInfo) {
+					// Get device
+					const device = getDevice(data.body.commonName);
+					if (device) {
 
-						// Reset interval
-						clearInterval(registerInterval);
-						registerInterval = null;
+						// Re-register push event when TTL is less than 15
+						if (data.body.timeToLiveSeconds <= 15) {
+							setTimeout(() => {
+								startRegisteringPushEvent(device);
+							}, 30000);
+						}
 
-						console.log('Toon: found new thermostat info');
+						// Check for valid incoming data
+						if (data.body.updateDataSet && data.body.updateDataSet.thermostatInfo) {
 
-						// Emit init event
-						if (device.client && typeof device.state.targetTemperature === 'undefined') device.client.emit('initialized');
+							// Reset interval
+							clearInterval(registerInterval);
+							registerInterval = null;
 
-						// Check if setpoint is provided
-						if (data.body.updateDataSet.thermostatInfo.currentSetpoint) {
+							console.log('Toon: found new thermostat info');
 
-							// Format data
-							let updatedTargetTemperature = data.body.updateDataSet.thermostatInfo.currentSetpoint;
-							updatedTargetTemperature = Math.round((updatedTargetTemperature / 100) * 10) / 10;
+							// Emit init event
+							if (device.client && typeof device.state.targetTemperature === 'undefined') device.client.emit('initialized');
 
-							// If updated temperature is not equal to prev temperature
-							if (device.state.targetTemperature && updatedTargetTemperature !== device.state.targetTemperature) {
+							// Check if setpoint is provided
+							if (data.body.updateDataSet.thermostatInfo.currentSetpoint) {
 
-								console.log(`Toon: emit realtime target_temperature event: ${updatedTargetTemperature}`);
+								// Format data
+								let updatedTargetTemperature = data.body.updateDataSet.thermostatInfo.currentSetpoint;
+								updatedTargetTemperature = Math.round((updatedTargetTemperature / 100) * 10) / 10;
 
-								// Do a realtime update
-								module.exports.realtime(device.data, 'target_temperature', updatedTargetTemperature);
+								// If updated temperature is not equal to prev temperature
+								if (device.state.targetTemperature && updatedTargetTemperature !== device.state.targetTemperature) {
+
+									console.log(`Toon: emit realtime target_temperature event: ${updatedTargetTemperature}`);
+
+									// Do a realtime update
+									module.exports.realtime(device.data, 'target_temperature', updatedTargetTemperature);
+								}
+
+								// And store updated value
+								device.state.targetTemperature = updatedTargetTemperature;
 							}
 
-							// And store updated value
-							device.state.targetTemperature = updatedTargetTemperature;
-						}
+							// Check if currentTemp is provided
+							if (data.body.updateDataSet.thermostatInfo.currentTemp) {
 
-						// Check if currentTemp is provided
-						if (data.body.updateDataSet.thermostatInfo.currentTemp) {
+								// Format data
+								let updatedMeasureTemperature = data.body.updateDataSet.thermostatInfo.currentTemp;
+								updatedMeasureTemperature = Math.round((updatedMeasureTemperature / 100) * 10) / 10;
 
-							// Format data
-							let updatedMeasureTemperature = data.body.updateDataSet.thermostatInfo.currentTemp;
-							updatedMeasureTemperature = Math.round((updatedMeasureTemperature / 100) * 10) / 10;
+								// If updated temperature is not equal to prev temperature
+								if (device.state.measureTemperature && updatedMeasureTemperature !== device.state.measureTemperature) {
 
-							// If updated temperature is not equal to prev temperature
-							if (device.state.measureTemperature && updatedMeasureTemperature !== device.state.measureTemperature) {
+									console.log(`Toon: emit realtime measure_temperature event: ${updatedMeasureTemperature}`);
 
-								console.log(`Toon: emit realtime measure_temperature event: ${updatedMeasureTemperature}`);
+									// Do a realtime update
+									module.exports.realtime(device.data, 'measure_temperature', updatedMeasureTemperature);
+								}
 
-								// Do a realtime update
-								module.exports.realtime(device.data, 'measure_temperature', updatedMeasureTemperature);
+								// And store updated value
+								device.state.measureTemperature = updatedMeasureTemperature;
 							}
 
-							// And store updated value
-							device.state.measureTemperature = updatedMeasureTemperature;
-						}
+							// Check if gasUsage is provided
+							if (data.body.updateDataSet.gasUsage) {
+								const gasUsage = data.body.updateDataSet.gasUsage.value;
 
-						// Check if gasUsage is provided
-						if (data.body.updateDataSet.gasUsage) {
-							const gasUsage = data.body.updateDataSet.gasUsage.value;
+								// Create new gas usage entry
+								Homey.manager('insights').createEntry('gas_usage', gasUsage, new Date(), err => {
+									if (err) return Homey.error(err);
+								});
+							}
 
-							// Create new gas usage entry
-							Homey.manager('insights').createEntry('gas_usage', gasUsage, new Date(), err => {
-								if (err) return Homey.error(err);
-							});
-						}
+							// Check if gasUsage is provided
+							if (data.body.updateDataSet.powerUsage) {
+								const powerUsage = data.body.updateDataSet.powerUsage.value;
 
-						// Check if gasUsage is provided
-						if (data.body.updateDataSet.powerUsage) {
-							const powerUsage = data.body.updateDataSet.powerUsage.value;
-
-							// Create new electricity usage entry
-							Homey.manager('insights').createEntry('electricity_usage', powerUsage, new Date(), err => {
-								if (err) return Homey.error(err);
-							});
+								// Create new electricity usage entry
+								Homey.manager('insights').createEntry('electricity_usage', powerUsage, new Date(), err => {
+									if (err) return Homey.error(err);
+								});
+							}
 						}
 					}
 				}
+			},
+			(err, result) => {
+				if (err) console.error(err, 'Toon: failed to setup webhook');
+				else if (result) console.log('Toon: succes setting up webhook');
 			}
-		},
-		(err, result) => {
-			if (err) console.error(err, 'Toon: failed to setup webhook');
-			else if (result) console.log('Toon: succes setting up webhook');
-		}
-	);
+		);
+	});
 }
 
 /**
@@ -483,6 +498,8 @@ function initDevice(deviceData) {
 		state: {},
 		client: client,
 	});
+
+	listenForEvents();
 
 	// Get agreements from client
 	client.getAgreements((err, agreements) => {
