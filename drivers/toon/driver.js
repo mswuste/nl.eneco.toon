@@ -360,6 +360,9 @@ function listenForEvents() {
 
 						console.log('Toon: found new thermostat info');
 
+						// Emit init event
+						if (device.client && typeof device.state.targetTemperature === 'undefined') device.client.emit('initialized');
+
 						// Check if setpoint is provided
 						if (data.body.updateDataSet.thermostatInfo.currentSetpoint) {
 
@@ -399,9 +402,6 @@ function listenForEvents() {
 							// And store updated value
 							device.state.measureTemperature = updatedMeasureTemperature;
 						}
-
-						// Emit init event
-						if (device.client && typeof device.state.targetTemperature === 'undefined') device.client.emit('initialized');
 
 						// Check if gasUsage is provided
 						if (data.body.updateDataSet.gasUsage) {
