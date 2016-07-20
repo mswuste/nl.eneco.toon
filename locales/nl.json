@@ -1,5 +1,6 @@
 {
   "reconnecting": "Bezig met verbinden...",
+  "connecting": "Bezig met verbinden...",
   "pair": {
     "error": "Er ging iets fout, probeer het opnieuw...",
     "login": "Inloggen",

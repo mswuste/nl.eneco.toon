@@ -3,26 +3,59 @@
 const Toon = require('node-toon');
 
 let devices = [];
-let temp_devices = [];
+let tempDevices = [];
+let registerInterval = undefined;
 
 /**
  * Find Toon
- * @param devices (already installed)
+ * @param devicesData (already installed)
  * @param callback
  */
-module.exports.init = function (devices_data, callback) {
+module.exports.init = (devicesData, callback) => {
 
 	// Loop over all installed devices and add them
-	devices_data.forEach(function (device_data) {
-		module.exports.setUnavailable(device_data, __("reconnecting"));
-		initDevice(device_data);
+	devicesData.forEach(deviceData => {
+
+		// Mark device unavailable
+		module.exports.setUnavailable(deviceData, __('reconnecting'));
+
+		// Init device
+		initDevice(deviceData);
 	});
 
-	// Start polling for changes
-	startPolling();
+	// Refresh tokens for each device
+	refreshTokenInterval();
 
 	// Start listening for events
 	listenForEvents();
+
+	// Create electricity usage insights log
+	Homey.manager('insights').createLog('electricity_usage', {
+		label: {
+			en: 'Electricity Usage',
+			nl: 'Elektriciteitsverbruik'
+		},
+		type: 'number',
+		units: {
+			en: 'Watt'
+		},
+		decimals: 2,
+		chart: 'line'
+	});
+
+	// Create gas uasge insights log
+	Homey.manager('insights').createLog('gas_usage', {
+		label: {
+			en: 'Gas Usage',
+			nl: 'Gasverbruik'
+		},
+		type: 'number',
+		units: {
+			en: 'm\u00B3'
+		},
+		decimals: 2,
+		chart: 'line'
+	});
 
 	// Ready
 	callback(null, true);
@@ -30,59 +63,76 @@ module.exports.init = function (devices_data, callback) {
 
 /**
  * Pairing process that calls list_devices when in need of all available Toon devices,
- * here the devices array is built and send to the front-end
+ * here the devices array is built and send to the front-end.
  */
-module.exports.pair = function (socket) {
+module.exports.pair = socket => {
 
 	// Create new toon instance
-	let client = new Toon(Homey.env.TOON_KEY, Homey.env.TOON_SECRET);
-	temp_devices = [];
+	const client = new Toon(Homey.env.TOON_KEY, Homey.env.TOON_SECRET, Homey.env.TOON_WEBHOOK_URL);
+
+	tempDevices = [];
 
 	// Listen for the start event
-	socket.on("start", function (data, callback) {
+	socket.on('start', (data, callback) => {
 
 		// Start with fetching access tokens
 		Homey.manager('cloud').generateOAuth2Callback(`https://api.toonapi.com/authorize?response_type=code&client_id=${Homey.env.TOON_KEY}&redirect_uri=https://callback.athom.com/oauth2/callback/`,
 
 			// Before fetching authorization code
-			function (err, result) {
-				callback(err, result);
+			(err, url) => {
+				if (err) console.error(err, 'Toon: error fetching authorization url');
+				else console.log('Toon: success fetching authorization url');
+				callback(err, url);
 			},
 
 			// After fetching authorization code
-			function (err, result) {
+			(err, code) => {
+				if (err) console.error(err, 'Toon: Error fetching authorization code');
+				else console.log('Toon: success fetching authorization code');
 
 				// Get new access and refresh token
-				client.getAccessTokens(result, "https://callback.athom.com/oauth2/callback/", function (err, result) {
+				client.getAccessTokens(code, 'https://callback.athom.com/oauth2/callback/', (err, tokens) => {
+					if (!err && tokens && tokens.hasOwnProperty('access_token') && tokens.hasOwnProperty('refresh_token')) {
 
-					// Get all devices hooked up to this account
-					client.getAgreements((err, results) => {
-						if (!err && results != null && results.length > 0) {
+						console.log('Toon: storing access tokens');
 
-							// Loop over agreements
-							results.forEach((data) => {
+						// Get all devices hooked up to this account
+						client.getAgreements((err, agreements) => {
+							if (!err && agreements != null && agreements.length > 0) {
 
-								// Check if device is not added already
-								if (!getDevice(data.agreementId)) {
+								// Loop over agreements
+								agreements.forEach((agreement) => {
 
-									// Store access token in settings
-									Homey.manager("settings").set(`toon_${data.agreementId}_access_token`, result.access_token);
-									Homey.manager("settings").set(`toon_${data.agreementId}_refresh_token`, result.refresh_token);
+									// Check if device is not added already and is valid
+									if (agreement.hasOwnProperty('agreementId')
+										&& agreement.hasOwnProperty('displayCommonName')
+										&& !getDevice(agreement.displayCommonName)) {
 
-									// Store device temporarily
-									temp_devices.push({
-										name: (results.length > 1) ? `Toon: ${data.street} ${data.houseNumber} , ${data.postalCode} ${data.city.charAt(0)}${data.city.slice(1).toLowerCase()}` : "Toon",
-										data: {
-											id: data.agreementId
-										}
-									});
-								}
-							});
-						}
+										// Store access token in settings
+										Homey.manager('settings').set(`toon_${agreement.displayCommonName}_access_token`, tokens.access_token);
+										Homey.manager('settings').set(`toon_${agreement.displayCommonName}_refresh_token`, tokens.refresh_token);
 
-						// Emit authenticated to the front-end
-						socket.emit("authenticated", result.access_token);
-					});
+										// Store device temporarily
+										tempDevices.push({
+											name: (agreements.length > 1) ? `Toon: ${agreement.street} 
+										${agreement.houseNumber} , ${agreement.postalCode} 
+										${agreement.city.charAt(0)}${agreement.city.slice(1).toLowerCase()}` : 'Toon',
+											data: {
+												id: agreement.displayCommonName,
+												agreementId: agreement.agreementId
+											},
+										});
+									}
+								});
+							} else console.error(err, 'Toon: error getting agreements');
+
+							// Emit authenticated to the front-end
+							socket.emit('authenticated', tokens.access_token);
+						});
+					} else if (callback) {
+						console.error(err, 'Toon: failed to fetch access tokens when pairing');
+						callback(true, false);
+					}
 				});
 			}
 		);
@@ -90,16 +140,16 @@ module.exports.pair = function (socket) {
 
 
 	// Show list of devices
-	socket.on("list_devices", (data, callback) => {
+	socket.on('list_devices', (data, callback) => {
 
 		// Return results
-		callback(null, temp_devices);
+		callback(null, tempDevices);
 	});
 
 	// Pairing done
 	socket.on('disconnect', () => {
-		temp_devices = [];
-	})
+		tempDevices = [];
+	});
 };
 
 /**
@@ -109,68 +159,61 @@ module.exports.capabilities = {
 
 	target_temperature: {
 
-		get: function (device_data, callback) {
-			if (device_data instanceof Error) return callback(device_data);
+		get: (deviceData, callback) => {
+			if (deviceData instanceof Error) return callback(deviceData);
 
 			// Get device
-			let device = getDevice(device_data);
+			const device = getDevice(deviceData);
 
 			// Check if found
-			if (device && device.state.target_temperature) {
-				callback(null, device.state.target_temperature);
-			}
-			else {
+			if (device && device.state.targetTemperature) {
+				callback(null, device.state.targetTemperature);
+			} else {
 
 				// Return error
 				callback(true, null);
 			}
 		},
 
-		set: function (device_data, temperature, callback) {
-			if (device_data instanceof Error) return callback(device_data);
+		set: (deviceData, temperature, callback) => {
+			if (deviceData instanceof Error) return callback(deviceData);
 
 			// Get device
-			let device = getDevice(device_data);
+			const device = getDevice(deviceData);
 
 			// Check if found
-			if (device && device.client) {
+			if (device && device.client && temperature) {
 
 				// Set temperature via api
-				device.client.setTargetTemperature(Math.round(temperature * 2) / 2, function (err, result) {
-
-					// Store updated temperature internally
-					device.state.target_temperature = (Math.round(temperature * 2) / 2);
-
+				device.client.setTargetTemperature(Math.round(temperature * 2) / 2, (err, result) => {
 					callback(err, result);
 				});
-			}
-			else {
+			} else {
 
 				// Return error
 				callback(true, null);
 			}
-		}
+		},
 	},
 
 	measure_temperature: {
 
-		get: function (device_data, callback) {
-			if (device_data instanceof Error) return callback(device_data);
+		get: (deviceData, callback) => {
+			if (deviceData instanceof Error) return callback(deviceData);
 
 			// Get device
-			let device = getDevice(device_data);
+			const device = getDevice(deviceData);
 
 			// Check if found
-			if (device && device.state.measure_temperature) {
-				callback(null, device.state.measure_temperature);
-			}
-			else {
+			if (device && device.state.measureTemperature) {
+				callback(null, device.state.measureTemperature);
+			} else {
 
 				// Return error
 				callback(true, null);
 			}
-		}
-	}
+		},
+	},
 };
 
 /**
@@ -179,50 +222,46 @@ module.exports.capabilities = {
  * @param device_data
  * @param callback
  */
-module.exports.added = function (device_data, callback) {
+module.exports.added = (deviceData, callback) => {
 
-	// Init newly added device
-	initDevice(device_data);
+	if (deviceData) {
 
-	// Callback success
-	callback(null, true);
+		// Init newly added device
+		initDevice(deviceData);
+
+		// Mark first as connecting
+		module.exports.setUnavailable(deviceData, __('connecting'));
+
+		// Callback success
+		callback(null, true);
+	} else callback(true, false);
 };
 
 /**
  * Delete devices internally when users removes one
  * @param device_data
  */
-module.exports.deleted = function (device_data) {
+module.exports.deleted = (deviceData) => {
 
-	let device = getDevice(device_data);
-	if (device && device.client) device.client.destroy();
-
-	// Reset array with device removed
-	devices = devices.filter(function (device) {
-		return device.data.id !== device_data.id
+	// Reset array with device removed and deregister push event subscription
+	devices = devices.filter(device => {
+		if (device.data.id === deviceData.id && device.client) device.client.deregisterPushEvent();
+		return device.data.id !== deviceData.id;
 	});
 };
 
 /**
- * Toon doesn't support realtime, therefore we have to poll
- * for changes considering the measured and target temperature
+ * Refresh token after 20 minutes to make sure we always
+ * have a valid access token ready.
  */
-function startPolling() {
+function refreshTokenInterval() {
 
-	setInterval(function () {
+	setInterval(() => {
 
 		// Refresh access tokens
 		refreshAccessTokens();
 
 	}, 20 * 60 * 1000);
-
-	// Poll every 20 seconds
-	setInterval(function () {
-
-		// Start fetching and updating data
-		fetchAndUpdateData();
-
-	}, 15000);
 }
 
 /**
@@ -231,77 +270,54 @@ function startPolling() {
  */
 function refreshAccessTokens() {
 
-	// Loop over the devices
-	devices.forEach(device => {
-
-		if (device && device.client) {
-
-			// If once manually authorized
-			if (device.client.refresh_token) {
-
-				// Fetch new tokens
-				device.client.refreshAccessToken();
-			}
-		}
-	});
-}
-
-/**
- * Start fetching data for all devices,
- * and look for updated values.
- */
-function fetchAndUpdateData() {
+	console.log('Toon: start refreshing tokens for all devices');
 
 	// Loop over the devices
 	devices.forEach(device => {
 
-		console.log(`Toon: fetch and update data for ${devices.length} devices`);
+		// Check valid device
+		if (device && device.client && device.client.refreshToken) {
 
-		if (device && device.client) {
+			// Fetch new tokens
+			device.client.refreshAccessToken((err, tokens) => {
 
-			// Fetch new status
-			device.client.getStatus((err, result) => {
-
-				console.log("Toon: get status:");
-				console.log(result);
-
-				if (!err && result) {
-
-					console.log("Toon: found new data, updating");
-
-					// Format values
-					result.currentSetpoint = Math.round((result.currentSetpoint / 100) * 10) / 10;
-					result.currentTemp = Math.round((result.currentTemp / 100) * 10) / 10;
-
-					// If updated temperature is not equal to prev temperature
-					if (device.state.target_temperature && result.currentSetpoint != device.state.target_temperature) {
-
-						console.log("Toon: emit realtime target_temperature event: " + result.currentSetpoint);
-
-						// Do a realtime update
-						module.exports.realtime(device.data, "target_temperature", result.currentSetpoint);
-					}
-
-					// And store updated value
-					device.state.target_temperature = result.currentSetpoint;
-
-					// If updated temperature is not equal to prev temperature
-					if (device.state.measure_temperature && result.currentTemp != device.state.measure_temperature) {
-
-						console.log("Toon: emit realtime measure_temperature event: " + result.currentTemp);
-
-						// Do a realtime update
-						module.exports.realtime(device.data, "measure_temperature", result.currentTemp);
-					}
-
-					// And store updated value
-					device.state.measure_temperature = result.currentTemp;
-				} else {
-					console.log("Toon: no new data found");
+				// Check if refresh succeeded
+				if (err || !tokens || !tokens.hasOwnProperty('access_token') || !tokens.hasOwnProperty('refresh_token')) {
+					console.error(err, 'Toon: failed to refresh access tokens');
 				}
 			});
 		}
 	});
+}
+
+function startRegisteringPushEvent(device) {
+
+	// Clear existing interval
+	if (registerInterval) return;
+
+	console.log('Toon: re-register push events');
+
+	registerInterval = setInterval(() => {
+		if (device) {
+			if (device.client) {
+				device.client.deregisterPushEvent(() => {
+					device.client.setAgreement(device.data.agreementId, () => {
+						device.client.registerPushEvent();
+					});
+				});
+			}
+		} else {
+			devices.forEach(storedDevice => {
+				if (storedDevice && storedDevice.client) {
+					storedDevice.client.deregisterPushEvent(() => {
+						storedDevice.client.setAgreement(storedDevice.data.agreementId, () => {
+							storedDevice.client.registerPushEvent();
+						});
+					});
+				}
+			});
+		}
+	}, 10000);
 }
 
 /**
@@ -310,108 +326,199 @@ function fetchAndUpdateData() {
  */
 function listenForEvents() {
 
-	// Register webhook
-	// TODO use webhook registered under info@athom.com
-	Homey.manager('cloud').registerWebhook(Homey.env.TOON_WEBHOOK_ID, Homey.env.TOON_WEBHOOK_SECRET, {}, (data) => {
-			//TODO handle incoming event with updated data store it in this
-			console.log("Incoming data")
-			console.log(data.body.updateDataSet);
+	// Register webhook and listen for incoming events
+	Homey.manager('cloud').registerWebhook(Homey.env.TOON_WEBHOOK_ID, Homey.env.TOON_WEBHOOK_SECRET, {},
+		data => {
 
+			// Check if data and body is provided
+			if (data && data.body) {
+
+				console.log(`Toon: incoming pushEvent data ${data.body.timeToLiveSeconds}`);
+
+				// If subscription has ended, restart subscription for all clients
+				if (typeof data.body.timeToLiveSeconds === 'undefined') {
+					startRegisteringPushEvent();
+				}
+
+				// Get device
+				const device = getDevice(data.body.commonName);
+				if (device) {
+
+					// Re-register push event when TTL is less than 15
+					if (data.body.timeToLiveSeconds <= 15) {
+						setTimeout(() => {
+							startRegisteringPushEvent(device);
+						}, 30000);
+					}
+
+					// Check for valid incoming data
+					if (data.body.updateDataSet && data.body.updateDataSet.thermostatInfo) {
+
+						// Reset interval
+						clearInterval(registerInterval);
+						registerInterval = null;
+
+						console.log('Toon: found new thermostat info');
+
+						// Check if setpoint is provided
+						if (data.body.updateDataSet.thermostatInfo.currentSetpoint) {
+
+							// Format data
+							let updatedTargetTemperature = data.body.updateDataSet.thermostatInfo.currentSetpoint;
+							updatedTargetTemperature = Math.round((updatedTargetTemperature / 100) * 10) / 10;
+
+							// If updated temperature is not equal to prev temperature
+							if (device.state.targetTemperature && updatedTargetTemperature !== device.state.targetTemperature) {
+
+								console.log(`Toon: emit realtime target_temperature event: ${updatedTargetTemperature}`);
+
+								// Do a realtime update
+								module.exports.realtime(device.data, 'target_temperature', updatedTargetTemperature);
+							}
+
+							// And store updated value
+							device.state.targetTemperature = updatedTargetTemperature;
+						}
+
+						// Check if currentTemp is provided
+						if (data.body.updateDataSet.thermostatInfo.currentTemp) {
+
+							// Format data
+							let updatedMeasureTemperature = data.body.updateDataSet.thermostatInfo.currentTemp;
+							updatedMeasureTemperature = Math.round((updatedMeasureTemperature / 100) * 10) / 10;
+
+							// If updated temperature is not equal to prev temperature
+							if (device.state.measureTemperature && updatedMeasureTemperature !== device.state.measureTemperature) {
+
+								console.log(`Toon: emit realtime measure_temperature event: ${updatedMeasureTemperature}`);
+
+								// Do a realtime update
+								module.exports.realtime(device.data, 'measure_temperature', updatedMeasureTemperature);
+							}
+
+							// And store updated value
+							device.state.measureTemperature = updatedMeasureTemperature;
+						}
+
+						// Emit init event
+						if (device.client) device.client.emit('initialized');
+
+						// Check if gasUsage is provided
+						if (data.body.updateDataSet.gasUsage) {
+							const gasUsage = data.body.updateDataSet.gasUsage.value;
+
+							// Create new gas usage entry
+							Homey.manager('insights').createEntry('gas_usage', gasUsage, new Date(), err => {
+								if (err) return Homey.error(err);
+							});
+						}
+
+						// Check if gasUsage is provided
+						if (data.body.updateDataSet.powerUsage) {
+							const powerUsage = data.body.updateDataSet.powerUsage.value;
+
+							// Create new electricity usage entry
+							Homey.manager('insights').createEntry('electricity_usage', powerUsage, new Date(), err => {
+								if (err) return Homey.error(err);
+							});
+						}
+					}
+				}
+			}
 		},
 		(err, result) => {
-			if (err) console.log("Toon: failed to setup webhook");
-			else if (result) console.log("Toon: succes setting up webhook");
+			if (err) console.error(err, 'Toon: failed to setup webhook');
+			else if (result) console.log('Toon: succes setting up webhook');
 		}
 	);
 }
 
 /**
  * Initializes a device, based on device_data
- * @param device_data
+ * @param deviceData
  */
-function initDevice(device_data) {
+function initDevice(deviceData) {
 
 	// Create new toon instance
-	var client = new Toon(Homey.env.TOON_KEY, Homey.env.TOON_SECRET);
+	const client = new Toon(Homey.env.TOON_KEY, Homey.env.TOON_SECRET, Homey.env.TOON_WEBHOOK_URL);
+
+	// Listen for refresh event
+	client.on('refreshed', tokens => {
+
+		console.log('Toon: storing refreshed access tokens');
+
+		// Store access token in settings
+		Homey.manager('settings').set(`toon_${deviceData.id}_access_token`, tokens.access_token);
+		Homey.manager('settings').set(`toon_${deviceData.id}_refresh_token`, tokens.refresh_token);
+
+		// Listen for init event
+	}).on('initialized', data => {
+
+		// Get device object to store data
+		const device = getDevice(deviceData);
+		if (device) {
+			if (!device.state.targetTemperature && data) device.state.targetTemperature = data.targetTemperature;
+			if (!device.state.measureTemperature && data) device.state.measureTemperature = data.measureTemperature;
+		}
+
+		// Mark device as available
+		module.exports.setAvailable(deviceData);
+
+		console.log('Toon: device is initialized with data and available');
+	});
 
 	// Fetch stored access tokens and store them in toon object
-	if (Homey.manager('settings').get(`toon_${device_data.id}_access_token`)) client.access_token = Homey.manager('settings').get(`toon_${device_data.id}_access_token`);
-	if (Homey.manager('settings').get(`toon_${device_data.id}_refresh_token`)) client.refresh_token = Homey.manager('settings').get(`toon_${device_data.id}_refresh_token`);
+	if (Homey.manager('settings').get(`toon_${deviceData.id}_access_token`)) {
+		client.accessToken = Homey.manager('settings').get(`toon_${deviceData.id}_access_token`);
+	}
+	if (Homey.manager('settings').get(`toon_${deviceData.id}_refresh_token`)) {
+		client.refreshToken = Homey.manager('settings').get(`toon_${deviceData.id}_refresh_token`);
+	}
+
+	console.log('Toon: initializing device...');
+
+	// Store constructed device
+	devices.push({
+		data: deviceData,
+		state: {},
+		client: client,
+	});
 
 	// Get agreements from client
-	client.getAgreements((err, results) => {
-		if (!err && results) {
+	client.getAgreements((err, agreements) => {
+		if (!err && agreements) {
+
+			console.log('Toon: got agreements');
 
 			// Loop over results
-			results.forEach(function (data) {
+			agreements.forEach(agreement => {
 
 				// Check if agreementId is device id
-				if (data.agreementId === device_data.id) {
+				if (agreement && agreement.hasOwnProperty('agreementId') && agreement.agreementId === deviceData.agreementId) {
+
+					console.log(`Toon: setting agreement -> ${agreement.agreementId}`);
 
 					// Store newly set agreement
-					client.setAgreement(data.agreementId, function () {
+					client.setAgreement(agreement.agreementId, () => {
 
-						// Store constructed device
-						devices.push({
-							name: "Toon",
-							data: {
-								id: device_data.id
-							},
-							state: {},
-							client: client
-						});
-
-						// Set available again
-						module.exports.setAvailable(device_data);
-
-						// Start fetching and updating data
-						fetchAndUpdateData();
-
-						// Subscribe to events from toon
-						client._basePOST("pushEvent", {
-							"callbackUrl": Homey.env.TOON_WEBHOOK_URL,
-							"applicationId": Homey.env.TOON_KEY
-						}, function (err, result) {
-							if (err) console.log("pushEvent failed to register");
-							else if (result) console.log('pushEvent registered');
-						});
-
-						// TODO add insights logging for electicity and gas usage
-						// Homey.manager('insights').createLog( 'electricity_usage', {
-						// 	label: {
-						// 		en: 'Electricity Usage'
-						// 	},
-						// 	type: 'number',
-						// 	units: {
-						// 		en: 'kWh'
-						// 	},
-						// 	decimals: 2,
-						// 	chart: 'stepLine' // prefered, or default chart type. can be: line, area, stepLine, column, spline, splineArea, scatter
-						// }, function callback(err , success){
-						// 	if( err ) return Homey.error(err);
-						// 	Homey.manager('insights').createEntry( 'power_usage', 9, new Date(), function(err, success){
-						// 		if( err ) return Homey.error(err);
-						// 	})
-						// });
+						console.log('Toon: device initialisation done');
 					});
 				}
 			});
-		}
+		} else console.error(err, 'Toon: failed to get agreements');
 	});
 }
 
 /**
  * Gets a device based on an id
- * @param device_data
+ * @param deviceData
  * @returns {*}
  */
-function getDevice(device_data) {
+function getDevice(deviceData) {
 
 	// If only id provided
-	if (typeof device_data != "object") device_data = { id: device_data };
+	if (typeof deviceData !== 'object') deviceData = { id: deviceData };
 
 	// Loop over devices
-	return devices.find(function (device) {
-		return device.data.id === device_data.id;
-	});
+	return devices.find(device => device.data.id === deviceData.id);
 }

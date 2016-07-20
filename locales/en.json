@@ -1,5 +1,6 @@
 {
   "reconnecting": "Reconnecting...",
+  "connecting": "Connecting...",
   "pair": {
     "error": "Something went wrong, please try again...",
     "login": "Please login",

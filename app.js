@@ -1,7 +1,7 @@
-"use strict";
+'use strict';
 
-var self = module.exports = {
-    init: function () {
+const self = module.exports = {
+	init: () => {
 
-    }
+	}
 };
