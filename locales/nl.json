@@ -4,7 +4,7 @@
   "pair": {
     "error": "Er ging iets fout, probeer het opnieuw...",
     "login": "Inloggen",
-    "login_explained": "Om Homey te verbinden met Toon moet je eerst inloggen met de gegevens van je Toon account.",
+    "login_explained": "Om Homey te verbinden met Toon moet je eerst inloggen met de gegevens van je Toon account. Door in te loggen geef je Homey toestemming voor het gebruik van alle informatie gegenereerd door Toon. Deze informatie wordt alleen opgeslagen op Homey voor weergave in Inzichten, en zal nergens anders voor worden gebruikt.",
     "username": "Gebruikersnaam",
     "password": "Wachtwoord",
     "found_toon": "Homey heeft Toon gevonden!",
