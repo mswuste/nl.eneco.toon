@@ -7,12 +7,12 @@
     "login_explained": "Om Homey te verbinden met Toon® moet je eerst inloggen met de gegevens van je Toon account. Door in te loggen geef je Homey toestemming voor het gebruik van alle informatie gegenereerd door Toon. Deze informatie wordt alleen opgeslagen op Homey voor weergave in Inzichten, en zal nergens anders voor worden gebruikt.",
     "username": "Gebruikersnaam",
     "password": "Wachtwoord",
-    "found_toon": "Homey heeft Toon gevonden!",
-    "no_toon": "Homey kon Toon niet vinden...",
+    "found_toon": "Homey heeft Toon® gevonden!",
+    "no_toon": "Homey kon Toon® niet vinden...",
     "no_toon_explained": "Het lijkt er op dat er geen nieuw Toon",
-    "found_toon_explained": "Toon is succesvol gekoppeld aan je Homey!",
+    "found_toon_explained": "Toon® is succesvol gekoppeld aan je Homey!",
     "retry": "Probeer opnieuw",
-    "installed_toon": "Deze Toon is al geïnstalleerd!",
-    "installed_toon_explained": "Het lijkt er op dat de Toon die verbonden is met dit account reeds geïnstalleerd is op deze Homey, wil je nog een Toon apparaat toevoegen, probeer dan een ander account."
+    "installed_toon": "Deze Toon® is al geïnstalleerd!",
+    "installed_toon_explained": "Het lijkt er op dat de Toon® die verbonden is met dit account reeds geïnstalleerd is op deze Homey, wil je nog een Toon apparaat toevoegen, probeer dan een ander account."
   }
 }

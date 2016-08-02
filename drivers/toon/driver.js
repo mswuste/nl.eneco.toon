@@ -111,9 +111,9 @@ module.exports.pair = socket => {
 
 										// Store device temporarily
 										tempDevices.push({
-											name: (agreements.length > 1) ? `Toon: ${agreement.street} 
+											name: (agreements.length > 1) ? `Toon®: ${agreement.street} 
 										${agreement.houseNumber} , ${agreement.postalCode} 
-										${agreement.city.charAt(0)}${agreement.city.slice(1).toLowerCase()}` : 'Toon',
+										${agreement.city.charAt(0)}${agreement.city.slice(1).toLowerCase()}` : 'Toon®',
 											data: {
 												id: agreement.displayCommonName,
 												agreementId: agreement.agreementId

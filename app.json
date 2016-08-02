@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "compatibility": ">=0.1.0",
   "name": {
-    "en": "Toon by Eneco",
-    "nl": "Toon van Eneco"
+    "en": "Toon®",
+    "nl": "Toon®"
   },
   "description": {
-    "en": "Toon the smart thermostat by Eneco",
-    "nl": "Toon de slimme thermostaat van Eneco"
+    "en": "Toon® by Eneco",
+    "nl": "Toon® van Eneco"
   },
   "author": {
     "name": "Athom B.V."
@@ -26,8 +26,8 @@
     {
       "id": "toon",
       "name": {
-        "en": "Toon by Eneco",
-        "nl": "Toon van Eneco"
+        "en": "Toon® by Eneco",
+        "nl": "Toon® van Eneco"
       },
       "images": {
         "large": "drivers/toon/assets/images/large.png",
