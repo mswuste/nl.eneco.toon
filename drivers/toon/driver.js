@@ -211,6 +211,44 @@ module.exports.capabilities = {
 			}
 		},
 	},
+
+	meter_gas: {
+
+		get: (deviceData, callback) => {
+			if (deviceData instanceof Error) return callback(deviceData);
+
+			// Get device
+			const device = getDevice(deviceData);
+			console.log(device.state);
+			// Check if found
+			if (device && typeof device.state.meterGas !== 'undefined') {
+				callback(null, device.state.meterGas);
+			} else {
+
+				// Return error
+				callback(true, null);
+			}
+		},
+	},
+
+	measure_power: {
+
+		get: (deviceData, callback) => {
+			if (deviceData instanceof Error) return callback(deviceData);
+
+			// Get device
+			const device = getDevice(deviceData);
+
+			// Check if found
+			if (device && typeof device.state.measurePower !== 'undefined') {
+				callback(null, device.state.measurePower);
+			} else {
+
+				// Return error
+				callback(true, null);
+			}
+		},
+	}
 };
 
 /**
@@ -422,9 +460,12 @@ function listenForEvents() {
 								const gasUsage = data.body.updateDataSet.gasUsage.value;
 
 								// Create new gas usage entry
+								// TODO remove this when capability logging works
 								Homey.manager('insights').createEntry('gas_usage', gasUsage, new Date(), err => {
 									if (err) return Homey.error(err);
 								});
+
+								device.state.meterGas = gasUsage;
 							}
 
 							// Check if gasUsage is provided
@@ -432,9 +473,12 @@ function listenForEvents() {
 								const powerUsage = data.body.updateDataSet.powerUsage.value;
 
 								// Create new electricity usage entry
+								// TODO remove this when capability logging works
 								Homey.manager('insights').createEntry('electricity_usage', powerUsage, new Date(), err => {
 									if (err) return Homey.error(err);
 								});
+
+								device.state.measurePower = powerUsage;
 							}
 						}
 					}
