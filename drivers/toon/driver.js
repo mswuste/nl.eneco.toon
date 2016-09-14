@@ -247,7 +247,7 @@ module.exports.capabilities = {
 				// Return error
 				callback(true, null);
 			}
-		},
+		}
 	}
 };
 
@@ -282,7 +282,14 @@ module.exports.deleted = (deviceData) => {
 
 	// Reset array with device removed and deregister push event subscription
 	devices = devices.filter(device => {
-		if (device.data.id === deviceData.id && device.client) device.client.deregisterPushEvent();
+		if (device.data.id === deviceData.id && device.client) {
+
+			device.client.deregisterPushEvent();
+
+			// Store access token in settings
+			Homey.manager('settings').unset(`toon_${deviceData.id}_access_token`);
+			Homey.manager('settings').unset(`toon_${deviceData.id}_refresh_token`);
+		}
 		return device.data.id !== deviceData.id;
 	});
 };
@@ -396,8 +403,8 @@ function listenForEvents() {
 					const device = getDevice(data.body.commonName);
 					if (device) {
 
-						// Re-register push event when TTL is less than 15
-						if (data.body.timeToLiveSeconds <= 15) {
+						// Re-register push event when TTL is less than 100
+						if (data.body.timeToLiveSeconds <= 100) {
 							setTimeout(() => {
 								startRegisteringPushEvent(device);
 							}, 30000);
