@@ -4,7 +4,7 @@
   "pair": {
     "error": "Er ging iets fout, probeer het opnieuw...",
     "login": "Inloggen",
-    "login_explained": "Om Homey te verbinden met Toon® moet je eerst inloggen met de gegevens van je Toon account. Door in te loggen geef je Homey toestemming voor het gebruik van alle informatie gegenereerd door Toon. Deze informatie wordt alleen opgeslagen op Homey voor weergave in Inzichten, en zal nergens anders voor worden gebruikt.",
+    "login_explained": "Om Homey te verbinden met Toon® moet je eerst inloggen met de gegevens van je Toon account. Door in te loggen geef je Homey toestemming tot het gebruik van beperkte informatie van Toon. Deze informatie wordt alleen opgeslagen op Homey voor weergave in Inzichten, en zal nergens anders voor worden gebruikt. Deze app werkt via Toon en is ontwikkeld door Athom. Voor vragen over de app, ga naar de <a href='https://www.athom.com/nl/ondersteuning/' target='_blank'>Athom support pagina</a>.",
     "username": "Gebruikersnaam",
     "password": "Wachtwoord",
     "found_toon": "Homey heeft Toon® gevonden!",

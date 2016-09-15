@@ -26,8 +26,8 @@
     {
       "id": "toon",
       "name": {
-        "en": "Toon® by Eneco",
-        "nl": "Toon® van Eneco"
+        "en": "Toon®",
+        "nl": "Toon®"
       },
       "images": {
         "large": "drivers/toon/assets/images/large.png",
