@@ -163,7 +163,7 @@ module.exports.capabilities = {
 			const device = getDevice(deviceData);
 
 			// Check if found
-			if (device && device.state.targetTemperature) {
+			if (device && device.state && device.state.targetTemperature) {
 				callback(null, device.state.targetTemperature);
 			} else {
 
@@ -202,7 +202,7 @@ module.exports.capabilities = {
 			const device = getDevice(deviceData);
 
 			// Check if found
-			if (device && device.state.measureTemperature) {
+			if (device && device.state && device.state.measureTemperature) {
 				callback(null, device.state.measureTemperature);
 			} else {
 
@@ -219,9 +219,9 @@ module.exports.capabilities = {
 
 			// Get device
 			const device = getDevice(deviceData);
-			console.log(device.state);
+			console.log(device);
 			// Check if found
-			if (device && typeof device.state.meterGas !== 'undefined') {
+			if (device && device.state && typeof device.state.meterGas !== 'undefined') {
 				callback(null, device.state.meterGas);
 			} else {
 
@@ -240,7 +240,7 @@ module.exports.capabilities = {
 			const device = getDevice(deviceData);
 
 			// Check if found
-			if (device && typeof device.state.measurePower !== 'undefined') {
+			if (device && device.state && typeof device.state.measurePower !== 'undefined') {
 				callback(null, device.state.measurePower);
 			} else {
 
