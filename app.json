@@ -1,61 +1,146 @@
 {
-  "id": "nl.eneco.toon",
-  "version": "1.0.0",
-  "compatibility": ">=0.1.0",
-  "name": {
-    "en": "Toon®",
-    "nl": "Toon®"
-  },
-  "description": {
-    "en": "Toon®",
-    "nl": "Toon®"
-  },
-  "author": {
-    "name": "Athom B.V."
-  },
-  "category": "climate",
-  "images": {
-    "large": "assets/images/large.png",
-    "small": "assets/images/small.png"
-  },
-  "permissions": [
-  ],
-  "speech": [
-  ],
-  "drivers": [
-    {
-      "id": "toon",
-      "name": {
-        "en": "Toon®",
-        "nl": "Toon®"
-      },
-      "images": {
-        "large": "drivers/toon/assets/images/large.png",
-        "small": "drivers/toon/assets/images/small.png"
-      },
-      "class": "thermostat",
-      "capabilities": [
-        "target_temperature",
-        "measure_temperature",
-        "meter_gas",
-        "measure_power"
-      ],
-      "pair": [
-        {
-          "id": "start"
-        },
-        {
-          "id": "list_toon_devices",
-          "template": "list_devices",
-          "navigation": {
-            "next": "add_toon"
-          }
-        },
-        {
-          "id": "add_toon",
-          "template": "add_devices"
-        }
-      ]
-    }
-  ]
+	"id": "nl.eneco.toon",
+	"version": "1.0.0",
+	"compatibility": ">=1.0.3",
+	"name": {
+		"en": "Toon®",
+		"nl": "Toon®"
+	},
+	"description": {
+		"en": "Toon®",
+		"nl": "Toon®"
+	},
+	"author": {
+		"name": "Athom B.V."
+	},
+	"category": "climate",
+	"images": {
+		"large": "assets/images/large.png",
+		"small": "assets/images/small.png"
+	},
+	"permissions": [
+	],
+	"speech": [
+	],
+	"drivers": [
+		{
+			"id": "toon",
+			"name": {
+				"en": "Toon®",
+				"nl": "Toon®"
+			},
+			"images": {
+				"large": "drivers/toon/assets/images/large.png",
+				"small": "drivers/toon/assets/images/small.png"
+			},
+			"class": "thermostat",
+			"capabilities": [
+				"target_temperature",
+				"measure_temperature",
+				"meter_gas",
+				"meter_power"
+			],
+			"capabilityOptions": {
+				"target_temperature": {
+					"step": 0.5,
+					"min": 6,
+					"max": 30
+				}
+			},
+			"mobile": {
+				"components": [
+					{
+						"id": "icon",
+						"capabilities": []
+					},
+					{
+						"id": "sensor",
+						"capabilities": [
+							"measure_temperature",
+							"meter_power",
+							"meter_gas"
+						]
+					},
+					{
+						"id": "thermostat",
+						"capabilities": [
+							"target_temperature"
+						]
+					}
+				]
+			},
+			"pair": [
+				{
+					"id": "start"
+				},
+				{
+					"id": "list_toon_devices",
+					"template": "list_devices",
+					"navigation": {
+						"next": "add_toon"
+					}
+				},
+				{
+					"id": "add_toon",
+					"template": "add_devices"
+				}
+			]
+		}
+	],
+	"flow": {
+		"triggers": [
+			{
+				"id": "meter_gas_changed",
+				"title": {
+					"en": "The gas meter changed",
+					"nl": "De gasmeter is veranderd"
+				},
+				"tokens": [
+					{
+						"name": "meter_gas",
+						"title": {
+							"en": "m³",
+							"nl": "m³"
+						},
+						"example": {
+							"en": "25"
+						}
+					}
+				],
+				"args": [
+					{
+						"name": "device",
+						"type": "device",
+						"filter": "class=sensor&capabilities=meter_gas"
+					}
+				]
+			},
+			{
+				"id": "meter_power_changed",
+				"title": {
+					"en": "The power meter changed",
+					"nl": "De energiemeter is veranderd"
+				},
+				"tokens": [
+					{
+						"name": "meter_power",
+						"title": {
+							"en": "Wh",
+							"nl": "Wh"
+						},
+						"example": {
+							"en": "75"
+						}
+					}
+				],
+				"args": [
+					{
+						"name": "device",
+						"type": "device",
+						"filter": "class=socket&capabilities=meter_power"
+					}
+				]
+			}
+		]
+	}
 }

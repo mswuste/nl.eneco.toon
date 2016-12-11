@@ -2,6 +2,7 @@
 
 /**
  * TODO refreshing tokens on api cal/interval
+ * TODO check gas/electricity flow cards
  */
 
 const Toon = require('node-toon');
@@ -15,6 +16,9 @@ let tempDevices = [];
  * @param callback
  */
 module.exports.init = (devicesData, callback) => {
+
+	const initializations = [];
+
 	if (devicesData) {
 
 		// Loop over all installed devices and add them
@@ -24,12 +28,13 @@ module.exports.init = (devicesData, callback) => {
 			module.exports.setUnavailable(deviceData, __('reconnecting'));
 
 			// Init device
-			initDevice(deviceData);
+			initializations.push(initDevice(deviceData));
 		});
 	}
 
-	// Ready
-	callback(null, true);
+	Promise.all(initializations)
+		.then(() => callback(null, true))
+		.catch(err => callback(err));
 };
 
 /**
@@ -202,7 +207,7 @@ module.exports.capabilities = {
 		},
 	},
 
-	measure_power: {
+	meter_power: {
 
 		get: (deviceData, callback) => {
 			if (deviceData instanceof Error) return callback(deviceData);
@@ -211,8 +216,8 @@ module.exports.capabilities = {
 			const device = getDevice(deviceData);
 
 			// Check if found
-			if (device && device.state && typeof device.state.measurePower !== 'undefined')
-				return callback(null, device.state.measurePower);
+			if (device && device.state && typeof device.state.meterPower !== 'undefined')
+				return callback(null, device.state.meterPower);
 
 			// Return error
 			return callback(true, null);
@@ -248,11 +253,13 @@ module.exports.added = (deviceData, callback) => {
  */
 module.exports.deleted = (deviceData) => {
 	devices = devices.filter(device => {
-		if (device.data === deviceData && device.client) {
+		if (device.data.id === deviceData.id && device.client) {
 
 			// Store access token in settings
 			Homey.manager('settings').unset(`toon_${deviceData.id}_access_token`);
 			Homey.manager('settings').unset(`toon_${deviceData.id}_refresh_token`);
+
+			device.client.destroy();
 		}
 		return device.data !== deviceData;
 	});
@@ -263,76 +270,114 @@ module.exports.deleted = (deviceData) => {
  * @param deviceData
  */
 function initDevice(deviceData) {
+	return new Promise((resolve, reject) => {
 
-	// Create new toon instance
-	const client = new Toon(Homey.env.TOON_KEY, Homey.env.TOON_SECRET);
+		// Create new toon instance
+		const client = new Toon(Homey.env.TOON_KEY, Homey.env.TOON_SECRET);
 
-	// Listen for refresh event
-	client.on('refreshed', tokens => {
+		// Listen for refresh event
+		client
+			.on('refreshed', tokens => {
 
-		console.log('Toon: storing refreshed access tokens');
+				console.log('Toon: storing refreshed access tokens');
 
-		// Store access token in settings
-		Homey.manager('settings').set(`toon_${deviceData.id}_access_token`, tokens.access_token);
-		Homey.manager('settings').set(`toon_${deviceData.id}_refresh_token`, tokens.refresh_token);
+				// Store access token in settings
+				Homey.manager('settings').set(`toon_${deviceData.id}_access_token`, tokens.access_token);
+				Homey.manager('settings').set(`toon_${deviceData.id}_refresh_token`, tokens.refresh_token);
 
-		// Listen for init event
-	}).on('initialized', data => {
+				// Listen for init event
+			})
+			.on('initialized', data => {
 
-		// Get device object to store data
-		const device = getDevice(deviceData);
-		if (device) {
-			if (!device.state.targetTemperature && data) device.state.targetTemperature = data.targetTemperature;
-			if (!device.state.measureTemperature && data) device.state.measureTemperature = data.measureTemperature;
-		}
-
-		// Mark device as available
-		module.exports.setAvailable(deviceData);
-
-		console.log('Toon: device is initialized with data and available');
-	});
-
-	// Fetch stored access tokens and store them in toon object
-	if (Homey.manager('settings').get(`toon_${deviceData.id}_access_token`))
-		client.accessToken = Homey.manager('settings').get(`toon_${deviceData.id}_access_token`);
-	if (Homey.manager('settings').get(`toon_${deviceData.id}_refresh_token`))
-		client.refreshToken = Homey.manager('settings').get(`toon_${deviceData.id}_refresh_token`);
-
-	console.log('Toon: initializing device...');
-
-	// Store constructed device
-	devices.push({
-		data: deviceData,
-		state: {},
-		client: client,
-	});
-
-	// Get agreements from client
-	client.getAgreements().then(agreements => {
-		if (agreements) {
-
-			console.log('Toon: got agreements');
-
-			// Loop over results
-			agreements.forEach(agreement => {
-
-				// Check if agreementId is device id
-				if (agreement && agreement.hasOwnProperty('agreementId') && agreement.agreementId === deviceData.agreementId) {
-
-					console.log(`Toon: setting agreement -> ${agreement.agreementId}`);
-
-					// Store newly set agreement
-					client.setAgreement(agreement.agreementId).then(() => {
-
-						console.log('Toon: device initialisation done');
-					}).catch(err => {
-						console.error('Toon: setting agreement failed', err);
-					});
+				// Get device object to store data
+				const device = getDevice(deviceData);
+				if (device) {
+					if (!device.state.targetTemperature && data) device.state.targetTemperature = data.targetTemperature;
+					if (!device.state.measureTemperature && data) device.state.measureTemperature = data.measureTemperature;
+					if (!device.state.meterGas && data) device.state.meterGas = data.meterGas;
+					if (!device.state.meterPower && data) device.state.meterPower = data.meterPower;
 				}
+
+				console.log(device.state);
+
+				// Mark device as available
+				module.exports.setAvailable(deviceData);
+
+				console.log('Toon: device is initialized with data and available');
+
+				return resolve();
+			})
+			.on('measureTemperature', measureTemperature => {
+				console.log('Toon: new measureTemperature', measureTemperature);
+				const device = getDevice(deviceData);
+				device.state.measureTemperature = measureTemperature;
+				module.exports.realtime(deviceData, 'measure_temperature', device.state.measureTemperature);
+			})
+			.on('targetTemperature', targetTemperature => {
+				console.log('Toon: new targetTemperature', targetTemperature);
+				const device = getDevice(deviceData);
+				device.state.targetTemperature = targetTemperature;
+				module.exports.realtime(deviceData, 'target_temperature', device.state.targetTemperature);
+			})
+			.on('meterGas', meterGas => {
+				console.log('Toon: new meterGas', meterGas);
+				const device = getDevice(deviceData);
+				device.state.meterGas = meterGas;
+				module.exports.realtime(deviceData, 'meter_gas', device.state.meterGas);
+			})
+			.on('meterPower', meterPower => {
+				console.log('Toon: new meterPower', meterPower);
+				const device = getDevice(deviceData);
+				device.state.meterPower = meterPower;
+				module.exports.realtime(deviceData, 'meter_power', device.state.meterPower);
 			});
-		} else console.error('Toon: failed to get agreements');
-	}).catch(err => {
-		console.error('Toon: failed to get agreements', err);
+
+		// Fetch stored access tokens and store them in toon object
+		if (Homey.manager('settings').get(`toon_${deviceData.id}_access_token`))
+			client.accessToken = Homey.manager('settings').get(`toon_${deviceData.id}_access_token`);
+		if (Homey.manager('settings').get(`toon_${deviceData.id}_refresh_token`))
+			client.refreshToken = Homey.manager('settings').get(`toon_${deviceData.id}_refresh_token`);
+
+		console.log('Toon: initializing device...');
+
+		// Store constructed device
+		devices.push({
+			data: deviceData,
+			state: {},
+			client: client,
+		});
+
+		// Get agreements from client
+		client.getAgreements().then(agreements => {
+			if (agreements) {
+
+				console.log('Toon: got agreements');
+
+				// Loop over results
+				agreements.forEach(agreement => {
+
+					// Check if agreementId is device id
+					if (agreement && agreement.hasOwnProperty('agreementId') && agreement.agreementId === deviceData.agreementId) {
+
+						console.log(`Toon: setting agreement -> ${agreement.agreementId}`);
+
+						// Store newly set agreement
+						client.setAgreement(agreement.agreementId).then(() => {
+							console.log('Toon: device initialisation done');
+							resolve();
+						}).catch(err => {
+							console.error('Toon: setting agreement failed', err);
+						});
+					}
+				});
+			} else {
+				console.error('Toon: failed to get agreements');
+				return reject('Toon: failed to get agreements');
+			}
+		}).catch(err => {
+			console.error('Toon: failed to get agreements', err);
+			return reject('Toon: failed to get agreements', err);
+		});
 	});
 }
 
