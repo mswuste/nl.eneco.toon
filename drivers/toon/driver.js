@@ -1,10 +1,5 @@
 'use strict';
 
-/**
- * TODO refreshing tokens on api cal/interval
- * TODO check gas/electricity flow cards
- */
-
 const Toon = require('node-toon');
 
 let devices = [];
@@ -100,22 +95,26 @@ module.exports.pair = socket => {
 										});
 									}
 								});
-							} else console.error('Toon: error getting agreements', err);
+							} else {
+								console.error('Toon: error getting agreements', err);
+								return callback('error getting agreements', err);
+							}
 
 							// Emit authenticated to the front-end
 							socket.emit('authenticated', tokens.access_token);
 
 						}).catch(err => {
 							console.error('Toon: error getting agreements', err);
+							return callback('error getting agreements', err);
 						});
 					} else if (callback) {
 						console.error('Toon: failed to fetch access tokens when pairing', err);
-						callback(true, false);
+						return callback('failed to fetch access tokens');
 					}
 				}).catch(err => {
-					console.error(err, 'Toon: failed to fetch access tokens when pairing');
+					console.error('Toon: failed to fetch access tokens when pairing', err);
 
-					if (callback) callback(true, false);
+					if (callback) return callback(err);
 				});
 			}
 		);
@@ -284,8 +283,6 @@ function initDevice(deviceData) {
 				// Store access token in settings
 				Homey.manager('settings').set(`toon_${deviceData.id}_access_token`, tokens.access_token);
 				Homey.manager('settings').set(`toon_${deviceData.id}_refresh_token`, tokens.refresh_token);
-
-				// Listen for init event
 			})
 			.on('initialized', data => {
 
@@ -297,8 +294,6 @@ function initDevice(deviceData) {
 					if (!device.state.meterGas && data) device.state.meterGas = data.meterGas;
 					if (!device.state.meterPower && data) device.state.meterPower = data.meterPower;
 				}
-
-				console.log(device.state);
 
 				// Mark device as available
 				module.exports.setAvailable(deviceData);
@@ -364,7 +359,7 @@ function initDevice(deviceData) {
 						// Store newly set agreement
 						client.setAgreement(agreement.agreementId).then(() => {
 							console.log('Toon: device initialisation done');
-							resolve();
+							return resolve();
 						}).catch(err => {
 							console.error('Toon: setting agreement failed', err);
 						});
