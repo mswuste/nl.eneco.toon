@@ -18,10 +18,6 @@
 		"large": "assets/images/large.png",
 		"small": "assets/images/small.png"
 	},
-	"permissions": [
-	],
-	"speech": [
-	],
 	"drivers": [
 		{
 			"id": "toon",
@@ -111,7 +107,7 @@
 					{
 						"name": "device",
 						"type": "device",
-						"filter": "class=sensor&capabilities=meter_gas"
+						"filter": "driver_id=toon"
 					}
 				]
 			},
@@ -137,7 +133,7 @@
 					{
 						"name": "device",
 						"type": "device",
-						"filter": "class=socket&capabilities=meter_power"
+						"filter": "driver_id=toon"
 					}
 				]
 			}
