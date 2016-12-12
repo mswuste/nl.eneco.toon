@@ -6,7 +6,6 @@
  */
 
 const Toon = require('node-toon');
-const Log = require('homey-log').Log;
 
 let devices = [];
 let tempDevices = [];
