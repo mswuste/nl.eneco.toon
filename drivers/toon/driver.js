@@ -1,5 +1,7 @@
 'use strict';
 
+// TODO support programs
+
 const Toon = require('node-toon');
 
 let devices = [];
