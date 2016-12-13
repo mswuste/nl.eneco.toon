@@ -1,6 +1,7 @@
 'use strict';
 
 // TODO support programs
+// TODO handle case where display is offline
 
 const Toon = require('node-toon');
 
@@ -271,7 +272,7 @@ module.exports.deleted = (deviceData) => {
  * @param deviceData
  */
 function initDevice(deviceData) {
-	return new Promise((resolve, reject) => {
+	return new Promise(resolve => {
 
 		// Create new toon instance
 		const client = new Toon(Homey.env.TOON_KEY, Homey.env.TOON_SECRET);
@@ -369,11 +370,11 @@ function initDevice(deviceData) {
 				});
 			} else {
 				console.error('Toon: failed to get agreements');
-				return reject('Toon: failed to get agreements');
+				return resolve('Toon: failed to get agreements');
 			}
 		}).catch(err => {
 			console.error('Toon: failed to get agreements', err);
-			return reject('Toon: failed to get agreements', err);
+			return resolve('Toon: failed to get agreements', err);
 		});
 	});
 }
