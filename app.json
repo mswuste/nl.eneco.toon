@@ -18,6 +18,54 @@
 		"large": "assets/images/large.png",
 		"small": "assets/images/small.png"
 	},
+	"capabilities": {
+		"temperature_state": {
+			"type": "enum",
+			"title": {
+				"en": "Temperature state",
+				"nl": "Temperatuurstand"
+			},
+			"getable": true,
+			"setable": true,
+			"values": [
+				{
+					"id": "comfort",
+					"title": {
+						"en": "Comfort",
+						"nl": "Comfort"
+					}
+				},
+				{
+					"id": "home",
+					"title": {
+						"en": "Home",
+						"nl": "Thuis"
+					}
+				},
+				{
+					"id": "sleep",
+					"title": {
+						"en": "Sleep",
+						"nl": "Slapen"
+					}
+				},
+				{
+					"id": "away",
+					"title": {
+						"en": "Away",
+						"nl": "Weg"
+					}
+				},
+				{
+					"id": "none",
+					"title": {
+						"en": "No state",
+						"nl": "Geen stand"
+					}
+				}
+			]
+		}
+	},
 	"drivers": [
 		{
 			"id": "toon",
@@ -34,7 +82,8 @@
 				"target_temperature",
 				"measure_temperature",
 				"meter_gas",
-				"meter_power"
+				"meter_power",
+				"temperature_state"
 			],
 			"capabilityOptions": {
 				"target_temperature": {
@@ -56,6 +105,12 @@
 							"meter_power",
 							"meter_gas"
 						]
+					},
+					{
+						"capabilities": [
+							"temperature_state"
+						],
+						"id": "picker"
 					},
 					{
 						"id": "thermostat",
@@ -129,6 +184,159 @@
 						}
 					}
 				],
+				"args": [
+					{
+						"name": "device",
+						"type": "device",
+						"filter": "driver_id=toon"
+					}
+				]
+			},
+			{
+				"id": "temperature_state_changed",
+				"title": {
+					"en": "Temperature state changed",
+					"nl": "Temperatuur status is veranderd"
+				},
+				"tokens": [
+					{
+						"name": "temperature_state",
+						"title": {
+							"en": "state",
+							"nl": "state"
+						},
+						"example": {
+							"en": "Comfort",
+							"nl": "Comfort"
+						}
+					}
+				],
+				"args": [
+					{
+						"name": "device",
+						"type": "device",
+						"filter": "driver_id=toon"
+					}
+				]
+			}
+		],
+		"conditions": [
+			{
+				"id": "temperature_state_is",
+				"title": {
+					"en": "Temperature state !{{is|isn't}}"
+				},
+				"args": [
+					{
+						"name": "device",
+						"type": "device",
+						"filter": "driver_id=toon"
+					},
+					{
+						"name": "state",
+						"type": "dropdown",
+						"value": "comfort",
+						"values": [
+							{
+								"id": "comfort",
+								"label": {
+									"en": "Comfort",
+									"nl": "Comfort"
+								}
+							},
+							{
+								"id": "home",
+								"label": {
+									"en": "Home",
+									"nl": "Thuis"
+								}
+							},
+							{
+								"id": "sleep",
+								"label": {
+									"en": "Sleep",
+									"nl": "Slapen"
+								}
+							},
+							{
+								"id": "away",
+								"label": {
+									"en": "Away",
+									"nl": "Weg"
+								}
+							},
+							{
+								"id": "none",
+								"label": {
+									"en": "No state",
+									"nl": "Geen stand"
+								}
+							}
+						]
+					}
+				]
+			}
+		],
+		"actions": [
+			{
+				"id": "set_temperature_state",
+				"title": {
+					"en": "Set temperature state",
+					"nl": "Stel temperatuurstand in"
+				},
+				"hint": {
+					"en": "This will override the program",
+					"nl": "Dit schakelt het programma uit"
+				},
+				"args": [
+					{
+						"name": "device",
+						"type": "device",
+						"filter": "driver_id=toon"
+					},
+					{
+						"name": "state",
+						"type": "dropdown",
+						"value": "comfort",
+						"values": [
+							{
+								"id": "comfort",
+								"label": {
+									"en": "Comfort",
+									"nl": "Comfort"
+								}
+							},
+							{
+								"id": "home",
+								"label": {
+									"en": "Home",
+									"nl": "Thuis"
+								}
+							},
+							{
+								"id": "sleep",
+								"label": {
+									"en": "Sleep",
+									"nl": "Slapen"
+								}
+							},
+							{
+								"id": "away",
+								"label": {
+									"en": "Away",
+									"nl": "Weg"
+								}
+							}
+						]
+					}
+				]
+			},
+			{
+				"id": "resume_program",
+				"title": {
+					"en": "Resume program",
+					"nl": "Ga verder met programma"
+				},
 				"args": [
 					{
 						"name": "device",

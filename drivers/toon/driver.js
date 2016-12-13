@@ -30,6 +30,31 @@ module.exports.init = (devicesData, callback) => {
 		});
 	}
 
+	// Handle active state condition check
+	Homey.manager('flow').on('condition.temperature_state_is', (callback, args) => {
+		const device = getDevice(args.device);
+		if (device) return callback(null, device.state.temperatureState === args.state);
+		return callback('device_not_found');
+	});
+
+	Homey.manager('flow').on('action.set_temperature_state', (callback, args) => {
+		const device = getDevice(args.device);
+		if (device && device.client) {
+			device.client.updateState(args.state)
+				.then(() => callback(null, true))
+				.catch(err => callback(err));
+		} else return callback('device_not_found');
+	});
+
+	Homey.manager('flow').on('action.resume_program', (callback, args) => {
+		const device = getDevice(args.device);
+		if (device && device.client) {
+			device.client.resumeProgram()
+				.then(() => callback(null, true))
+				.catch(err => callback(err));
+		} else return callback('device_not_found');
+	});
+
 	Promise.all(initializations)
 		.then(() => callback(null, true))
 		.catch(err => callback(err));
@@ -225,6 +250,43 @@ module.exports.capabilities = {
 			return callback(true, null);
 		},
 	},
+
+	temperature_state: {
+
+		get: (deviceData, callback) => {
+			if (deviceData instanceof Error) return callback(deviceData);
+
+			// Get device
+			const device = getDevice(deviceData);
+
+			// Check if found
+			if (device && device.state && device.state.temperatureState)
+				return callback(null, device.state.temperatureState);
+
+			// Return error
+			return callback(true, null);
+		},
+
+		set: (deviceData, temperatureState, callback) => {
+			if (deviceData instanceof Error) return callback(deviceData);
+
+			// Get device
+			const device = getDevice(deviceData);
+
+			// Check if found
+			if (device && device.client && temperatureState) {
+
+				// Set temperature via api
+				device.client.updateState(temperatureState)
+					.then(() => callback(null, temperatureState))
+					.catch(err => callback(err));
+			} else {
+
+				// Return error
+				return callback(true, null);
+			}
+		},
+	},
 };
 
 /**
@@ -296,6 +358,7 @@ function initDevice(deviceData) {
 					if (!device.state.measureTemperature && data) device.state.measureTemperature = data.measureTemperature;
 					if (!device.state.meterGas && data) device.state.meterGas = data.meterGas;
 					if (!device.state.meterPower && data) device.state.meterPower = data.meterPower;
+					if (!device.state.temperatureState && data) device.state.temperatureState = data.temperatureState;
 				}
 
 				// Mark device as available
@@ -328,6 +391,12 @@ function initDevice(deviceData) {
 				const device = getDevice(deviceData);
 				device.state.meterPower = meterPower;
 				module.exports.realtime(deviceData, 'meter_power', device.state.meterPower);
+			})
+			.on('temperatureState', temperatureState => {
+				console.log('Toon: new temperatureState', temperatureState);
+				const device = getDevice(deviceData);
+				device.state.temperatureState = temperatureState;
+				module.exports.realtime(deviceData, 'temperature_state', device.state.temperatureState);
 			});
 
 		// Fetch stored access tokens and store them in toon object
