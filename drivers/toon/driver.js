@@ -1,8 +1,5 @@
 'use strict';
 
-// TODO support programs
-// TODO handle case where display is offline
-
 const Toon = require('node-toon');
 
 let devices = [];
@@ -397,6 +394,15 @@ function initDevice(deviceData) {
 				const device = getDevice(deviceData);
 				device.state.temperatureState = temperatureState;
 				module.exports.realtime(deviceData, 'temperature_state', device.state.temperatureState);
+			})
+			.on('offline', () => {
+				module.exports.setUnavailable(deviceData, __('offline'));
+			})
+			.on('online', () => {
+				module.exports.setAvailable(deviceData);
+			})
+			.on('unauthenticated', () => {
+				module.exports.setUnavailable(deviceData, __('unauthenticated'));
 			});
 
 		// Fetch stored access tokens and store them in toon object
@@ -428,13 +434,8 @@ function initDevice(deviceData) {
 
 						console.log(`Toon: setting agreement -> ${agreement.agreementId}`);
 
-						// Store newly set agreement
-						client.setAgreement(agreement.agreementId).then(() => {
-							console.log('Toon: device initialisation done');
-							return resolve();
-						}).catch(err => {
-							console.error('Toon: setting agreement failed', err);
-						});
+						// Set agreement (retries if it fails
+						setAgreement(client, agreement.agreementId);
 					}
 				});
 			} else {
@@ -445,6 +446,26 @@ function initDevice(deviceData) {
 			console.error('Toon: failed to get agreements', err);
 			return resolve('Toon: failed to get agreements', err);
 		});
+	});
+}
+
+/**
+ * Set agreement, retries every 15 seconds
+ * if it fails.
+ * @param client
+ * @param agreementId
+ */
+function setAgreement(client, agreementId) {
+
+	// Store newly set agreement
+	client.setAgreement(agreementId).then(() => {
+		console.log('Toon: device initialisation done');
+	}).catch(err => {
+		setTimeout(() => {
+			console.log('Toon: retry setting agreement');
+			setAgreement(client, agreementId);
+		}, 15000);
+		console.error('Toon: setting agreement failed', err);
 	});
 }
 

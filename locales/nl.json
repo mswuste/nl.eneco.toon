@@ -1,6 +1,8 @@
 {
   "reconnecting": "Bezig met verbinden...",
   "connecting": "Bezig met verbinden...",
+  "offline": "Toon is onbereikbaar",
+  "unauthenticated": "Toon is de verbinding kwijt, voeg het apparaat opnieuw toe",
   "pair": {
     "error": "Er ging iets fout, probeer het opnieuw...",
     "login": "Inloggen",

@@ -1,6 +1,8 @@
 {
   "reconnecting": "Reconnecting...",
   "connecting": "Connecting...",
+  "offline": "Toon is unreachable",
+  "unauthenticated": "Toon lost the connection, please re-pair this device",
   "pair": {
     "error": "Something went wrong, please try again...",
     "login": "Please login",
