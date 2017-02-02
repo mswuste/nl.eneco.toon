@@ -81,8 +81,6 @@
 			"capabilities": [
 				"target_temperature",
 				"measure_temperature",
-				"meter_gas",
-				"meter_power",
 				"temperature_state"
 			],
 			"capabilitiesOptions": {
@@ -101,9 +99,7 @@
 					{
 						"id": "sensor",
 						"capabilities": [
-							"measure_temperature",
-							"meter_power",
-							"meter_gas"
+							"measure_temperature"
 						]
 					},
 					{
