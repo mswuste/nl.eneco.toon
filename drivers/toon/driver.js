@@ -1,6 +1,6 @@
 'use strict';
 
-const Toon = require('node-toon');
+const Toon = require('./../../lib/node-toon');
 
 let devices = [];
 let tempDevices = [];
@@ -83,7 +83,10 @@ module.exports.pair = socket => {
 
 			// After fetching authorization code
 			(err, code) => {
-				if (err) console.error(err, 'Toon: Error fetching authorization code');
+				if (err) {
+					console.error(err, 'Toon: Error fetching authorization code');
+					socket.emit('authenticated', err);
+				}
 				else console.log('Toon: success fetching authorization code');
 
 				// Get new access and refresh token
@@ -122,37 +125,25 @@ module.exports.pair = socket => {
 								});
 							} else {
 								console.error('Toon: error getting agreements', err);
-								return callback('error getting agreements', err);
 							}
-
-							// Emit authenticated to the front-end
-							socket.emit('authenticated', tokens.access_token);
-
+							return socket.emit('authenticated', null, tokens.access_token);
 						}).catch(err => {
 							console.error('Toon: error getting agreements', err);
-							return callback('error getting agreements', err);
+							return socket.emit('authenticated', err);
 						});
-					} else if (callback) {
+					} else {
 						console.error('Toon: failed to fetch access tokens when pairing', err);
-						return callback('failed to fetch access tokens');
+						return socket.emit('authenticated', err);
 					}
 				}).catch(err => {
 					console.error('Toon: failed to fetch access tokens when pairing', err);
-
-					if (callback) return callback(err);
+					return socket.emit('authenticated', err);
 				});
 			}
 		);
 	});
-
-
-	// Show list of devices
 	socket.on('list_devices', (data, callback) => callback(null, tempDevices));
-
-	// Pairing done
-	socket.on('disconnect', () => {
-		tempDevices = [];
-	});
+	socket.on('disconnect', () => tempDevices = []);
 };
 
 /**

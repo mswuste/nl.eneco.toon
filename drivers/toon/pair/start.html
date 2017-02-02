@@ -6,15 +6,22 @@
 
     var loginUrl;
     Homey.emit('start', {}, function (err, url) {
+    	if (err) {
+		    Homey.alert(__("pair.error", {error: err}));
+		    Homey.done();
+		    return err;
+	    }
         loginUrl = url;
         document.getElementById("authentication_button").disabled = false;
     });
-    Homey.on("authenticated", function (token) {
-        if (token) {
+    Homey.on("authenticated", function (err, token) {
+    	if (err) {
+		    Homey.alert(__("pair.error", {error: err}));
+		    Homey.done();
+		    return err;
+	    }
+        else if (token) {
             Homey.showView("list_toon_devices");
-        } else {
-            Homey.alert(__("pair.error"));
-            Homey.done();
         }
     });
 </script>
