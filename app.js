@@ -2,8 +2,6 @@
 
 const Log = require('homey-log').Log;
 
-const self = module.exports = {
-	init: () => {
-		console.log('nl.eneco.toon running...');
-	}
+module.exports.init = () => {
+	console.log(`${Homey.manifest.id} running...`);
 };
