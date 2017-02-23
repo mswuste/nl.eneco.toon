@@ -1,10 +1,10 @@
 {
   "id": "nl.eneco.toon",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "compatibility": ">=1.0.0",
   "name": {
-    "en": "Toon® (Beta)",
-    "nl": "Toon® (Beta)"
+    "en": "Toon®",
+    "nl": "Toon®"
   },
   "description": {
     "en": "Toon®",
