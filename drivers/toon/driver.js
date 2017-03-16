@@ -37,16 +37,25 @@ module.exports.init = (devicesData, callback) => {
 	Homey.manager('flow').on('action.set_temperature_state', (callback, args) => {
 		const device = getDevice(args.device);
 		if (device && device.client) {
-			device.client.updateState(args.state)
+			device.client.updateState(args.state, (args.resume_program === "yes"))
 				.then(() => callback(null, true))
 				.catch(err => callback(err));
 		} else return callback('device_not_found');
 	});
 
-	Homey.manager('flow').on('action.resume_program', (callback, args) => {
+	Homey.manager('flow').on('action.enable_program', (callback, args) => {
 		const device = getDevice(args.device);
 		if (device && device.client) {
-			device.client.resumeProgram()
+			device.client.enableProgram()
+				.then(() => callback(null, true))
+				.catch(err => callback(err));
+		} else return callback('device_not_found');
+	});
+
+	Homey.manager('flow').on('action.disable_program', (callback, args) => {
+		const device = getDevice(args.device);
+		if (device && device.client) {
+			device.client.disableProgram()
 				.then(() => callback(null, true))
 				.catch(err => callback(err));
 		} else return callback('device_not_found');
@@ -264,8 +273,8 @@ module.exports.capabilities = {
 			// Check if found
 			if (device && device.client && temperatureState) {
 
-				// Set temperature via api
-				device.client.updateState(temperatureState)
+				// Set temperature via api (resuming program afterwards)
+				device.client.updateState(temperatureState, true)
 					.then(() => callback(null, temperatureState))
 					.catch(err => callback(err));
 			} else {
