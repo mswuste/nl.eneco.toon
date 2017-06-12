@@ -2,10 +2,14 @@
   "id": "nl.eneco.toon",
   "version": "1.1.0",
   "compatibility": ">=1.0.0",
+  "sdk": 2,
   "name": {
     "en": "Toon®",
     "nl": "Toon®"
   },
+  "permissions": [
+    "homey:manager:geolocation"
+  ],
   "description": {
     "en": "Toon®",
     "nl": "Toon®"
@@ -118,7 +122,7 @@
       },
       "pair": [
         {
-          "id": "start"
+          "id": "authentication"
         },
         {
           "id": "list_toon_devices",

@@ -2,6 +2,7 @@
   "reconnecting": "Bezig met verbinden...",
   "connecting": "Bezig met verbinden...",
   "offline": "Toon is onbereikbaar",
+  "initialization_error": "Er ging iets fout, error: __error__",
   "unauthenticated": "Toon is de verbinding kwijt, voeg het apparaat opnieuw toe",
   "pair": {
     "error": "Er ging iets fout, probeer het opnieuw... \n__error__",
