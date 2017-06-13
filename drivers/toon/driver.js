@@ -10,21 +10,36 @@ const OAUTH_URL = `https://api.toonapi.com/authorize?response_type=code&client_i
 class ToonDriver extends Homey.HomeyDriver {
 
 	/**
-	 * Always use ToonDevice as device for this driver.
-	 * @returns {ToonDevice}
-	 */
-	mapDeviceClass() {
-		return ToonDevice;
-	}
-
-	/**
-	 * This method will be called when the driver initializes, it creates
-	 * instances enabling the OAuth2 flow and initializes Flow Cards.
+	 * This method will be called when the driver initializes, it initializes Flow Cards.
 	 */
 	onInit() {
-		this.authenticationClientToonAPI = new ToonAPI({ key: Homey.env.TOON_KEY, secret: Homey.env.TOON_SECRET });
-		this.oauth2Callback = new Homey.HomeyCloudOAuth2Callback(OAUTH_URL);
-		this.initFlowCards();
+		new Homey.HomeyFlowCardCondition('temperature_state_is')
+			.on('run', (args, state, callback) => {
+				const temperatureState = args.device.getCapabilityValue('temperature_state');
+				return callback(null, temperatureState === args.state);
+			})
+			.register();
+
+		new Homey.HomeyFlowCardAction('set_temperature_state')
+			.on('run', (args, state, callback) =>
+				args.device.onCapabilityTemperatureState(args.state, (args.resume_program === 'yes'))
+					.then(() => callback(null, true))
+					.catch(err => callback(err)))
+			.register();
+
+		new Homey.HomeyFlowCardAction('enable_program')
+			.on('run', (args, state, callback) => args.device.toonAPI.enableProgram()
+				.then(() => callback(null, true))
+				.catch(err => callback(err)))
+			.register();
+
+		new Homey.HomeyFlowCardAction('disable_program')
+			.on('run', (args, state, callback) => args.device.toonAPI.disableProgram()
+				.then(() => callback(null, true))
+				.catch(err => callback(err)))
+			.register();
+
+		this.log('onInit() -> complete, Flow Cards registered');
 	}
 
 	/**
@@ -34,15 +49,17 @@ class ToonDriver extends Homey.HomeyDriver {
 	 */
 	onPair(socket) {
 
-		socket.on('authentication', (data, callback) => {
-			this.oauth2Callback
+		const authenticationClientToonAPI = new ToonAPI({ key: Homey.env.TOON_KEY, secret: Homey.env.TOON_SECRET });
+
+		socket.on('authentication', () => {
+			new Homey.HomeyCloudOAuth2Callback(OAUTH_URL)
 				.once('url', url => {
 					this.log('retrieved authentication url:', url);
 					socket.emit('authenticationUrl', url);
 				})
 				.once('code', code => {
 					this.log('retrieved authentication code');
-					this.authenticationClientToonAPI
+					authenticationClientToonAPI
 						.getAccessTokens(code, 'https://callback.athom.com/oauth2/callback/')
 						.then(() => {
 							socket.emit('authenticated', true);
@@ -50,69 +67,45 @@ class ToonDriver extends Homey.HomeyDriver {
 						.catch(err => {
 							this.error(err.stack);
 							socket.emit('authenticated', err.message);
-						})
+						});
 				})
 				.generate()
-				.catch(this.error.bind(this, 'oauth2Callback.generate'))
+				.catch(this.error.bind(this, 'oauth2Callback.generate'));
 		});
 
 		socket.on('list_devices', (data, callback) => {
-			this.fetchDevices()
+			this.fetchDevices(authenticationClientToonAPI)
 				.then(tempDevices => callback(null, tempDevices))
-				.catch(err => callback(err.message));
+				.then(authenticationClientToonAPI.destroy.bind(authenticationClientToonAPI))
+				.catch(err => {
+					this.error(err.stack);
+					return callback(err.message);
+				});
 		});
 	}
 
 	/**
-	 * This method will be called upon driver initialization and will
-	 * register Flow Cards for this driver.
+	 * Always use ToonDevice as device for this driver.
+	 * @returns {ToonDevice}
 	 */
-	initFlowCards() {
-		new Homey.HomeyFlowCardCondition('temperature_state_is')
-			.on('run', (args, state, callback) => {
-				const temperatureState = args.device.getCapabilityValue('temperature_state');
-				return callback(null, temperatureState === args.state);
-			})
-			.register();
-
-		new Homey.HomeyFlowCardAction('set_temperature_state')
-			.on('run', (args, state, callback) => {
-				return args.device.onCapabilityTemperatureState(args.state, (args.resume_program === 'yes'))
-					.then(result => callback(null, true))
-					.catch(err => callback(err));
-			})
-			.register();
-
-		new Homey.HomeyFlowCardAction('enable_program')
-			.on('run', (args, state, callback) => {
-				return args.device.toonAPI.enableProgram()
-					.then(result => callback(null, true))
-					.catch(err => callback(err));
-			})
-			.register();
-
-		new Homey.HomeyFlowCardAction('disable_program')
-			.on('run', (args, state, callback) => {
-				return args.device.toonAPI.disableProgram()
-					.then(result => callback(null, true))
-					.catch(err => callback(err));
-			})
-			.register();
+	mapDeviceClass() {
+		return ToonDevice;
 	}
 
 	/**
 	 * This method will be called during pairing to retrieve a list of devices
 	 * connected to the user's account.
+	 * @param authenticationClientToonAPI
 	 * @returns {Promise}
 	 */
-	fetchDevices() {
-		return this.authenticationClientToonAPI.getAgreements().then(agreements => {
+	fetchDevices(authenticationClientToonAPI) {
+		return authenticationClientToonAPI.getAgreements().then(agreements => {
 			if (Array.isArray(agreements)) {
 				return agreements.map(agreement => {
 
 					// Store access token in settings
-					Homey.HomeyManagerSettings.set(`toon_${agreement.displayCommonName}_access_token`, this.authenticationClientToonAPI.accessToken);
-					Homey.HomeyManagerSettings.set(`toon_${agreement.displayCommonName}_refresh_token`, this.authenticationClientToonAPI.refreshToken);
+					Homey.HomeyManagerSettings.set(`toon_${agreement.displayCommonName}_access_token`, authenticationClientToonAPI.accessToken);
+					Homey.HomeyManagerSettings.set(`toon_${agreement.displayCommonName}_refresh_token`, authenticationClientToonAPI.refreshToken);
 
 					return {
 						name: (agreements.length > 1) ? `Toon®: ${agreement.street} 
@@ -120,8 +113,8 @@ class ToonDriver extends Homey.HomeyDriver {
 												${agreement.city.charAt(0)}${agreement.city.slice(1).toLowerCase()}` : 'Toon®',
 						data: {
 							id: agreement.displayCommonName,
-							agreementId: agreement.agreementId
-						}
+							agreementId: agreement.agreementId,
+						},
 					};
 				});
 			}

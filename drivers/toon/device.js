@@ -10,7 +10,7 @@ class ToonDevice extends Homey.HomeyDevice {
 		this.log('onInit()');
 		this.initialized = false;
 
-		this.setUnavailable(__('connecting'));
+		this.setUnavailable(Homey.__('connecting'));
 		this.toonAPI = new ToonAPI({ key: Homey.env.TOON_KEY, secret: Homey.env.TOON_SECRET, polling: true });
 
 		// Retrieve access tokens from memory
@@ -24,7 +24,7 @@ class ToonDevice extends Homey.HomeyDevice {
 			})
 			.catch(err => {
 				this.error(err.stack);
-				this.setUnavailable(__('initialization_error', {error: err.message}));
+				this.setUnavailable(Homey.__('initialization_error', {error: err.message}));
 			});
 	}
 
@@ -115,7 +115,7 @@ class ToonDevice extends Homey.HomeyDevice {
 	}
 
 	/**
-	 * This method will bind several listeners to the toonAPI instance.
+	 * This method will bind several listeners to the ToonAPI instance.
 	 */
 	bindEventListeners() {
 		this.toonAPI
@@ -157,7 +157,7 @@ class ToonDevice extends Homey.HomeyDevice {
 			})
 			.on('offline', () => {
 				this.log('offline event received');
-				this.setUnavailable(__('offline')).catch(err => this.error('could not setUnavailable()', err));
+				this.setUnavailable(Homey.__('offline')).catch(err => this.error('could not setUnavailable()', err));
 			})
 			.on('online', () => {
 				this.log('online event received');
@@ -167,7 +167,7 @@ class ToonDevice extends Homey.HomeyDevice {
 			})
 			.on('unauthenticated', () => {
 				this.log('unauthenticated event received');
-				this.setUnavailable(__('unauthenticated')).catch(err => this.error('could not setUnavailable()', err));
+				this.setUnavailable(Homey.__('unauthenticated')).catch(err => this.error('could not setUnavailable()', err));
 			});
 	}
 }
