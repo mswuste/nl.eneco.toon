@@ -1,7 +1,6 @@
 'use strict';
 
-// TODO re-write pairing when OAuth2 pairing template becomes available
-// TODO homey-log
+// TODO handle offline device properly
 
 const Homey = require('homey');
 // const Log = require('homey-log').Log;

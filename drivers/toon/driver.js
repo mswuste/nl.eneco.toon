@@ -51,26 +51,28 @@ class ToonDriver extends Homey.HomeyDriver {
 
 		const authenticationClientToonAPI = new ToonAPI({ key: Homey.env.TOON_KEY, secret: Homey.env.TOON_SECRET });
 
-		socket.on('authentication', () => {
+		socket.on('login_oauth2', (data, callback) => {
+
+			callback(null, Homey.__('pair.login_explained'));
+
 			new Homey.HomeyCloudOAuth2Callback(OAUTH_URL)
 				.once('url', url => {
-					this.log('retrieved authentication url:', url);
-					socket.emit('authenticationUrl', url);
+					this.log('retrieved authentication url');
+					socket.emit('url', url);
 				})
 				.once('code', code => {
 					this.log('retrieved authentication code');
 					authenticationClientToonAPI
 						.getAccessTokens(code, 'https://callback.athom.com/oauth2/callback/')
 						.then(() => {
-							socket.emit('authenticated', true);
+							socket.emit('authorized');
 						})
 						.catch(err => {
 							this.error(err.stack);
-							socket.emit('authenticated', err.message);
+							socket.emit('error', err.message);
 						});
 				})
-				.generate()
-				.catch(this.error.bind(this, 'oauth2Callback.generate'));
+				.generate();
 		});
 
 		socket.on('list_devices', (data, callback) => {

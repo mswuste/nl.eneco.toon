@@ -122,7 +122,8 @@
       },
       "pair": [
         {
-          "id": "authentication"
+          "id": "authentication",
+          "template": "login_oauth2"
         },
         {
           "id": "list_toon_devices",
