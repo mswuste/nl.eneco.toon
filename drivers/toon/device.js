@@ -34,8 +34,12 @@ class ToonDevice extends Homey.HomeyDevice {
 	 */
 	onDeleted() {
 		this.log('onDeleted()');
-		Homey.HomeyManagerSettings.unset(`toon_${this._data.id}_access_token`);
-		Homey.HomeyManagerSettings.unset(`toon_${this._data.id}_refresh_token`);
+		this.unsetStoreValue('accessToken').catch(err => {
+			this.error('onDeleted() -> could not unset accessToken', err.stack);
+		});
+		this.unsetStoreValue('refreshToken').catch(err => {
+			this.error('onDeleted() -> could not unset refreshToken', err.stack);
+		});
 		this.toonAPI.destroy();
 	}
 
@@ -68,18 +72,15 @@ class ToonDevice extends Homey.HomeyDevice {
 	getAccessTokensFromMemory() {
 		this.log('getAccessTokensFromMemory()');
 
-		// Retrieve access tokens from memory
-		if (Homey.HomeyManagerSettings.get(`toon_${this._data.id}_access_token`)) {
-			this.toonAPI.accessToken = Homey.HomeyManagerSettings.get(`toon_${this._data.id}_access_token`);
-		} else {
-			this.error(`getAccessTokensFromMemory() -> could not find accessToken for id: ${this._data.id}`);
-		}
-
-		if (Homey.HomeyManagerSettings.get(`toon_${this._data.id}_refresh_token`)) {
-			this.toonAPI.refreshToken = Homey.HomeyManagerSettings.get(`toon_${this._data.id}_refresh_token`);
-		} else {
-			this.error(`getAccessTokensFromMemory() -> could not find refreshToken for id: ${this._data.id}`);
-		}
+		Promise.all([
+			this.getStoreValue('accessToken'),
+			this.getStoreValue('refreshToken'),
+		]).then(result => {
+			this.toonAPI.accessToken = result[0];
+			this.toonAPI.refreshToken = result[1];
+		}).catch(err => {
+			this.error('getAccessTokensFromMemory() -> could not find accessToken or refreshToken, error:', err.stack);
+		});
 	}
 
 	/**
@@ -105,9 +106,13 @@ class ToonDevice extends Homey.HomeyDevice {
 		this.toonAPI
 			.on('refreshed', tokens => {
 				this.log('tokens are refreshed');
-				// Store access token in settings
-				Homey.HomeyManagerSettings.set(`toon_${this._data.id}_access_token`, tokens.access_token);
-				Homey.HomeyManagerSettings.set(`toon_${this._data.id}_refresh_token`, tokens.refresh_token);
+
+				this.setStoreValue('accessToken', tokens.access_token).catch(err => {
+					this.error('failed to store accessToken', err.stack);
+				});
+				this.setStoreValue('refreshToken', tokens.refresh_token).catch(err => {
+					this.error('failed to store refreshToken', err.stack);
+				});
 			})
 			.on('initialized', data => {
 				this.log('all data received');

@@ -103,22 +103,19 @@ class ToonDriver extends Homey.HomeyDriver {
 	fetchDevices(authenticationClientToonAPI) {
 		return authenticationClientToonAPI.getAgreements().then(agreements => {
 			if (Array.isArray(agreements)) {
-				return agreements.map(agreement => {
-
-					// Store access token in settings
-					Homey.HomeyManagerSettings.set(`toon_${agreement.displayCommonName}_access_token`, authenticationClientToonAPI.accessToken);
-					Homey.HomeyManagerSettings.set(`toon_${agreement.displayCommonName}_refresh_token`, authenticationClientToonAPI.refreshToken);
-
-					return {
-						name: (agreements.length > 1) ? `Toon®: ${agreement.street} 
+				return agreements.map(agreement => ({
+					name: (agreements.length > 1) ? `Toon®: ${agreement.street} 
 												${agreement.houseNumber} , ${agreement.postalCode} 
 												${agreement.city.charAt(0)}${agreement.city.slice(1).toLowerCase()}` : 'Toon®',
-						data: {
-							id: agreement.displayCommonName,
-							agreementId: agreement.agreementId,
-						},
-					};
-				});
+					data: {
+						id: agreement.displayCommonName,
+						agreementId: agreement.agreementId,
+					},
+					store: {
+						accessToken: authenticationClientToonAPI.accessToken,
+						refreshToken: authenticationClientToonAPI.refreshToken,
+					},
+				}));
 			}
 			return [];
 		});

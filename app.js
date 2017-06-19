@@ -3,7 +3,7 @@
 // TODO handle offline device properly
 
 const Homey = require('homey');
-// const Log = require('homey-log').Log;
+const Log = require('homey-log').Log;
 
 class ToonApp extends Homey.HomeyApp {
 	onInit() {
