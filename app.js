@@ -1,7 +1,5 @@
 'use strict';
 
-// TODO handle offline device properly
-
 const Homey = require('homey');
 const Log = require('homey-log').Log;
 

@@ -5,27 +5,35 @@ const ToonAPI = require('./../../lib/node-toon');
 
 class ToonDevice extends Homey.HomeyDevice {
 
+	/**
+	 * This method will be called when a new device has been added
+	 * or when the driver reboots with installed devices. It creates
+	 * a new ToonAPI client and sets the correct agreement.
+	 */
 	onInit() {
 
 		this.log('onInit()');
+
 		this.initialized = false;
 
 		this.setUnavailable(Homey.__('connecting'));
 
 		this.toonAPI = new ToonAPI({ key: Homey.env.TOON_KEY, secret: Homey.env.TOON_SECRET, polling: true });
 
+		this.registerCapabilityListener('target_temperature', this.onCapabilityTargetTemperature.bind(this));
+		this.registerCapabilityListener('temperature_state', this.onCapabilityTemperatureState.bind(this));
+
 		// Retrieve access tokens from memory
-		this.getAccessTokensFromMemory();
-		this.bindEventListeners();
-		this.setAgreement()
-			.then(() => {
-				this.registerCapabilityListener('target_temperature', this.onCapabilityTargetTemperature.bind(this));
-				this.registerCapabilityListener('temperature_state', this.onCapabilityTemperatureState.bind(this));
-				this.initialized = true;
-			})
-			.catch(err => {
-				this.error(err.stack);
-			});
+		this.getAccessTokensFromMemory().then(() => {
+			this.bindEventListeners();
+			this.setAgreement()
+				.then(() => {
+					this.initialized = true;
+				})
+				.catch(err => {
+					this.error(err.stack);
+				});
+		});
 	}
 
 	/**
@@ -72,7 +80,7 @@ class ToonDevice extends Homey.HomeyDevice {
 	getAccessTokensFromMemory() {
 		this.log('getAccessTokensFromMemory()');
 
-		Promise.all([
+		return Promise.all([
 			this.getStoreValue('accessToken'),
 			this.getStoreValue('refreshToken'),
 		]).then(result => {
@@ -88,14 +96,16 @@ class ToonDevice extends Homey.HomeyDevice {
 	 * if it fails, with 3 maximum number of retries.
 	 */
 	setAgreement() {
-		this.log('setAgreement()', this._data.agreementId);
+		this.log('setAgreement()', this.getData().agreementId);
 		return new Promise((resolve, reject) => {
 
 			// Store newly set agreement
-			this.toonAPI.setAgreement(this._data.agreementId).then(() => resolve()).catch(err => {
-				this.error('setAgreement() failed', err.stack);
-				return reject(new Error('failed_to_set_agreement'));
-			});
+			this.toonAPI.setAgreement(this.getData().agreementId)
+				.then(resolve)
+				.catch(err => {
+					this.error('setAgreement() failed', err.stack);
+					return reject(new Error('failed_to_set_agreement'));
+				});
 		});
 	}
 

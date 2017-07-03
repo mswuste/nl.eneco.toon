@@ -53,8 +53,6 @@ class ToonDriver extends Homey.HomeyDriver {
 
 		socket.on('login_oauth2', (data, callback) => {
 
-			callback(null, Homey.__('pair.login_explained'));
-
 			new Homey.HomeyCloudOAuth2Callback(OAUTH_URL)
 				.once('url', url => {
 					this.log('retrieved authentication url');
@@ -73,6 +71,8 @@ class ToonDriver extends Homey.HomeyDriver {
 						});
 				})
 				.generate();
+
+			return callback(null, Homey.__('pair.login_explained'));
 		});
 
 		socket.on('list_devices', (data, callback) => {
