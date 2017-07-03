@@ -146,9 +146,9 @@ class ToonDevice extends Homey.HomeyDevice {
 				this.log('new meterGas', meterGas);
 				this.setCapabilityValue('meter_gas', meterGas);
 			})
-			.on('meterPower', meterPower => {
-				this.log('new meterPower', meterPower);
-				this.setCapabilityValue('meter_power', meterPower);
+			.on('measurePower', measurePower => {
+				this.log('new measurePower', measurePower);
+				this.setCapabilityValue('measure_power', measurePower);
 			})
 			.on('temperatureState', temperatureState => {
 				this.log('new temperatureState', temperatureState);
