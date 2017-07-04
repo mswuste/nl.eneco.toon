@@ -7,33 +7,33 @@ const ToonAPI = require('./../../lib/node-toon');
 
 const OAUTH_URL = `https://api.toonapi.com/authorize?response_type=code&client_id=${Homey.env.TOON_KEY}&redirect_uri=https://callback.athom.com/oauth2/callback/`;
 
-class ToonDriver extends Homey.HomeyDriver {
+class ToonDriver extends Homey.Driver {
 
 	/**
 	 * This method will be called when the driver initializes, it initializes Flow Cards.
 	 */
 	onInit() {
-		new Homey.HomeyFlowCardCondition('temperature_state_is')
+		new Homey.FlowCardCondition('temperature_state_is')
 			.on('run', (args, state, callback) => {
 				const temperatureState = args.device.getCapabilityValue('temperature_state');
 				return callback(null, temperatureState === args.state);
 			})
 			.register();
 
-		new Homey.HomeyFlowCardAction('set_temperature_state')
+		new Homey.FlowCardAction('set_temperature_state')
 			.on('run', (args, state, callback) =>
 				args.device.onCapabilityTemperatureState(args.state, (args.resume_program === 'yes'))
 					.then(() => callback(null, true))
 					.catch(err => callback(err)))
 			.register();
 
-		new Homey.HomeyFlowCardAction('enable_program')
+		new Homey.FlowCardAction('enable_program')
 			.on('run', (args, state, callback) => args.device.toonAPI.enableProgram()
 				.then(() => callback(null, true))
 				.catch(err => callback(err)))
 			.register();
 
-		new Homey.HomeyFlowCardAction('disable_program')
+		new Homey.FlowCardAction('disable_program')
 			.on('run', (args, state, callback) => args.device.toonAPI.disableProgram()
 				.then(() => callback(null, true))
 				.catch(err => callback(err)))
@@ -53,7 +53,7 @@ class ToonDriver extends Homey.HomeyDriver {
 
 		socket.on('login_oauth2', (data, callback) => {
 
-			new Homey.HomeyCloudOAuth2Callback(OAUTH_URL)
+			new Homey.CloudOAuth2Callback(OAUTH_URL)
 				.once('url', url => {
 					this.log('retrieved authentication url');
 					socket.emit('url', url);

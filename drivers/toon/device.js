@@ -3,7 +3,7 @@
 const Homey = require('homey');
 const ToonAPI = require('./../../lib/node-toon');
 
-class ToonDevice extends Homey.HomeyDevice {
+class ToonDevice extends Homey.Device {
 
 	/**
 	 * This method will be called when a new device has been added
