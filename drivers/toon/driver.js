@@ -3,16 +3,29 @@
 const Homey = require('homey');
 
 const ToonDevice = require('./device.js');
+const WifiDriver = require('node-homey-wifi-driver').Driver;
 const ToonAPI = require('./../../lib/node-toon');
 
-const OAUTH_URL = `https://api.toonapi.com/authorize?response_type=code&client_id=${Homey.env.TOON_KEY}&redirect_uri=https://callback.athom.com/oauth2/callback/`;
+const oauth2ClientConfig = {
+	url: `https://api.toonapi.com/authorize?response_type=code&client_id=${Homey.env.TOON_KEY}&redirect_uri=https://callback.athom.com/oauth2/callback/`,
+	tokenEndpoint: 'https://api.toonapi.com/token',
+	key: Homey.env.TOON_KEY,
+	secret: Homey.env.TOON_SECRET,
+	allowMultipleAccounts: false,
+};
 
-class ToonDriver extends Homey.Driver {
+class ToonDriver extends WifiDriver {
 
 	/**
 	 * This method will be called when the driver initializes, it initializes Flow Cards.
 	 */
 	onInit() {
+
+		// Start OAuth2Client
+		super.onInit({
+			oauth2ClientConfig,
+		});
+
 		new Homey.FlowCardCondition('temperature_state_is')
 			.on('run', (args, state, callback) => {
 				const temperatureState = args.device.getCapabilityValue('temperature_state');
@@ -43,47 +56,26 @@ class ToonDriver extends Homey.Driver {
 	}
 
 	/**
-	 * This method will be called when the user starts pairing a new device,
-	 * it executes a OAuth2 flow to retrieve devices linked to the users account.
-	 * @param socket
+	 * The method will be called during pairing when a list of devices is needed. Only when this class
+	 * extends WifiDriver and provides a oauth2ClientConfig onInit. The data parameter contains an
+	 * temporary OAuth2 account that can be used to fetch the devices from the users account.
+	 * @param data {Object}
+	 * @returns {Promise}
 	 */
-	onPair(socket) {
+	onPairOAuth2ListDevices(data) {
 
-		const authenticationClientToonAPI = new ToonAPI({ key: Homey.env.TOON_KEY, secret: Homey.env.TOON_SECRET });
-
-		socket.on('login_oauth2', (data, callback) => {
-
-			new Homey.CloudOAuth2Callback(OAUTH_URL)
-				.once('url', url => {
-					this.log('retrieved authentication url');
-					socket.emit('url', url);
-				})
-				.once('code', code => {
-					this.log('retrieved authentication code');
-					authenticationClientToonAPI
-						.getAccessTokens(code, 'https://callback.athom.com/oauth2/callback/')
-						.then(() => {
-							socket.emit('authorized');
-						})
-						.catch(err => {
-							this.error(err.stack);
-							socket.emit('error', err.message);
-						});
-				})
-				.generate();
-
-			return callback(null, Homey.__('pair.login_explained'));
+		// Create temporary toonAPI client with temporary account
+		const authenticationClientToonAPI = new ToonAPI({
+			oauth2Account: data.oauth2Account,
 		});
 
-		socket.on('list_devices', (data, callback) => {
-			this.fetchDevices(authenticationClientToonAPI)
-				.then(tempDevices => callback(null, tempDevices))
-				.then(authenticationClientToonAPI.destroy.bind(authenticationClientToonAPI))
-				.catch(err => {
-					this.error(err.stack);
-					return callback(err.message);
-				});
-		});
+		// Return promise that fetches devices from account
+		return this.fetchDevices(authenticationClientToonAPI, data)
+			.then(tempDevices => {
+				authenticationClientToonAPI.destroy();
+				return tempDevices;
+			})
+			.catch(err => this.error(err.stack));
 	}
 
 	/**
@@ -100,7 +92,7 @@ class ToonDriver extends Homey.Driver {
 	 * @param authenticationClientToonAPI
 	 * @returns {Promise}
 	 */
-	fetchDevices(authenticationClientToonAPI) {
+	fetchDevices(authenticationClientToonAPI, data) {
 		return authenticationClientToonAPI.getAgreements().then(agreements => {
 			if (Array.isArray(agreements)) {
 				return agreements.map(agreement => ({
@@ -112,8 +104,11 @@ class ToonDriver extends Homey.Driver {
 						agreementId: agreement.agreementId,
 					},
 					store: {
-						accessToken: authenticationClientToonAPI.accessToken,
-						refreshToken: authenticationClientToonAPI.refreshToken,
+						tempOAuth2Account: Object.assign({
+							accessToken: data.oauth2Account.accessToken,
+							refreshToken: data.oauth2Account.refreshToken,
+							// oauth2AccountId: Math.random(), // Add a oauth2AccountId if you know this device if from a different account and if multiple accounts is allowed
+						}, oauth2ClientConfig),
 					},
 				}));
 			}

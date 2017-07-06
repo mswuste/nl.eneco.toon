@@ -1,9 +1,10 @@
 'use strict';
 
 const Homey = require('homey');
+const WifiDevice = require('node-homey-wifi-driver').Device;
 const ToonAPI = require('./../../lib/node-toon');
 
-class ToonDevice extends Homey.Device {
+class ToonDevice extends WifiDevice {
 
 	/**
 	 * This method will be called when a new device has been added
@@ -11,29 +12,25 @@ class ToonDevice extends Homey.Device {
 	 * a new ToonAPI client and sets the correct agreement.
 	 */
 	onInit() {
-
 		this.log('onInit()');
 
 		this.initialized = false;
 
 		this.setUnavailable(Homey.__('connecting'));
 
-		this.toonAPI = new ToonAPI({ key: Homey.env.TOON_KEY, secret: Homey.env.TOON_SECRET, polling: true });
+		this.toonAPI = new ToonAPI({ oauth2Account: this.getOAuth2Account(), polling: true });
 
 		this.registerCapabilityListener('target_temperature', this.onCapabilityTargetTemperature.bind(this));
 		this.registerCapabilityListener('temperature_state', this.onCapabilityTemperatureState.bind(this));
 
-		// Retrieve access tokens from memory
-		this.getAccessTokensFromMemory().then(() => {
-			this.bindEventListeners();
-			this.setAgreement()
-				.then(() => {
-					this.initialized = true;
-				})
-				.catch(err => {
-					this.error(err.stack);
-				});
-		});
+		this.bindEventListeners();
+		this.setAgreement()
+			.then(() => {
+				this.initialized = true;
+			})
+			.catch(err => {
+				this.error(err.stack);
+			});
 	}
 
 	/**
@@ -42,12 +39,6 @@ class ToonDevice extends Homey.Device {
 	 */
 	onDeleted() {
 		this.log('onDeleted()');
-		this.unsetStoreValue('accessToken').catch(err => {
-			this.error('onDeleted() -> could not unset accessToken', err.stack);
-		});
-		this.unsetStoreValue('refreshToken').catch(err => {
-			this.error('onDeleted() -> could not unset refreshToken', err.stack);
-		});
 		this.toonAPI.destroy();
 	}
 
@@ -74,24 +65,6 @@ class ToonDevice extends Homey.Device {
 	}
 
 	/**
-	 * Check if access tokens are stored in memory,
-	 * if so retrieve them and store them in the toonAPI instance.
-	 */
-	getAccessTokensFromMemory() {
-		this.log('getAccessTokensFromMemory()');
-
-		return Promise.all([
-			this.getStoreValue('accessToken'),
-			this.getStoreValue('refreshToken'),
-		]).then(result => {
-			this.toonAPI.accessToken = result[0];
-			this.toonAPI.refreshToken = result[1];
-		}).catch(err => {
-			this.error('getAccessTokensFromMemory() -> could not find accessToken or refreshToken, error:', err.stack);
-		});
-	}
-
-	/**
 	 * Set agreement, retries every 15 seconds
 	 * if it fails, with 3 maximum number of retries.
 	 */
@@ -114,16 +87,6 @@ class ToonDevice extends Homey.Device {
 	 */
 	bindEventListeners() {
 		this.toonAPI
-			.on('refreshed', tokens => {
-				this.log('tokens are refreshed');
-
-				this.setStoreValue('accessToken', tokens.access_token).catch(err => {
-					this.error('failed to store accessToken', err.stack);
-				});
-				this.setStoreValue('refreshToken', tokens.refresh_token).catch(err => {
-					this.error('failed to store refreshToken', err.stack);
-				});
-			})
 			.on('initialized', data => {
 				this.log('all data received');
 				this.setCapabilityValue('target_temperature', data.targetTemperature);
@@ -163,10 +126,6 @@ class ToonDevice extends Homey.Device {
 				// If device was initialized while not online, retry again when online
 				if (!this.initialized) this.onInit();
 				this.setAvailable().catch(err => this.error('could not setAvailable()', err));
-			})
-			.on('unauthenticated', () => {
-				this.log('unauthenticated event received');
-				this.setUnavailable(Homey.__('unauthenticated')).catch(err => this.error('could not setUnavailable()', err));
 			});
 	}
 }
