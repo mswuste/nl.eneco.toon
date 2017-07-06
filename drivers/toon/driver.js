@@ -3,7 +3,7 @@
 const Homey = require('homey');
 
 const ToonDevice = require('./device.js');
-const WifiDriver = require('node-homey-wifi-driver').Driver;
+const WifiDriver = require('homey-wifidriver').Driver;
 const ToonAPI = require('./../../lib/node-toon');
 
 const oauth2ClientConfig = {
@@ -67,6 +67,8 @@ class ToonDriver extends WifiDriver {
 		// Create temporary toonAPI client with temporary account
 		const authenticationClientToonAPI = new ToonAPI({
 			oauth2Account: data.oauth2Account,
+			log: this.log,
+			error: this.error,
 		});
 
 		// Return promise that fetches devices from account
@@ -107,7 +109,7 @@ class ToonDriver extends WifiDriver {
 						tempOAuth2Account: Object.assign({
 							accessToken: data.oauth2Account.accessToken,
 							refreshToken: data.oauth2Account.refreshToken,
-							// oauth2AccountId: Math.random(), // Add a oauth2AccountId if you know this device if from a different account and if multiple accounts is allowed
+							// id: <insert_username>, // Add a id property if you know this device is from a different account and if multiple accounts are allowed
 						}, oauth2ClientConfig),
 					},
 				}));

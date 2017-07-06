@@ -1,7 +1,7 @@
 'use strict';
 
 const Homey = require('homey');
-const WifiDevice = require('node-homey-wifi-driver').Device;
+const WifiDevice = require('homey-wifidriver').Device;
 const ToonAPI = require('./../../lib/node-toon');
 
 class ToonDevice extends WifiDevice {
@@ -18,7 +18,20 @@ class ToonDevice extends WifiDevice {
 
 		this.setUnavailable(Homey.__('connecting'));
 
-		this.toonAPI = new ToonAPI({ oauth2Account: this.getOAuth2Account(), polling: true });
+		// Construct Toon API object
+		this.toonAPI = new ToonAPI({
+			oauth2Account: this.getOAuth2Account(),
+			polling: true,
+			log: this.log,
+			error: this.error,
+		});
+
+		// Register status poll interval
+		this.registerPollInterval({
+			id: 'status',
+			fn: this.toonAPI.getStatus.bind(this.toonAPI),
+			interval: 30000,
+		});
 
 		this.registerCapabilityListener('target_temperature', this.onCapabilityTargetTemperature.bind(this));
 		this.registerCapabilityListener('temperature_state', this.onCapabilityTemperatureState.bind(this));
@@ -40,6 +53,7 @@ class ToonDevice extends WifiDevice {
 	onDeleted() {
 		this.log('onDeleted()');
 		this.toonAPI.destroy();
+		super.onDeleted();
 	}
 
 	/**

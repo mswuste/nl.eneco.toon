@@ -5,7 +5,7 @@
   "main": "app.js",
   "dependencies": {
     "homey-log": "^1.0.3",
-    "homey-wifi-driver": "file:../../node-homey-wifi-driver",
+    "homey-wifidriver": "file:../../node-homey-wifidriver",
     "promise-queue": "file:../../promise-queue",
     "request": "^2.81.0",
     "request-promise-native": "^1.0.4",
