@@ -3,7 +3,7 @@
 const Homey = require('homey');
 
 const ToonDevice = require('./device.js');
-const WifiDriver = require('homey-wifidriver').Driver;
+const OAuth2Driver = require('homey-wifidriver').OAuth2Driver;
 const ToonAPI = require('./../../lib/node-toon');
 
 const oauth2ClientConfig = {
@@ -14,7 +14,7 @@ const oauth2ClientConfig = {
 	allowMultipleAccounts: false,
 };
 
-class ToonDriver extends WifiDriver {
+class ToonDriver extends OAuth2Driver {
 
 	/**
 	 * This method will be called when the driver initializes, it initializes Flow Cards.

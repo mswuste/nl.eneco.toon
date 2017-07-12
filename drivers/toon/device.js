@@ -1,10 +1,10 @@
 'use strict';
 
 const Homey = require('homey');
-const WifiDevice = require('homey-wifidriver').Device;
+const OAuth2Device = require('homey-wifidriver').OAuth2Device;
 const ToonAPI = require('./../../lib/node-toon');
 
-class ToonDevice extends WifiDevice {
+class ToonDevice extends OAuth2Device {
 
 	/**
 	 * This method will be called when a new device has been added
