@@ -72,7 +72,7 @@ class ToonDriver extends OAuth2Driver {
 		});
 
 		// Return promise that fetches devices from account
-		return this.fetchDevices(authenticationClientToonAPI, data)
+		return this.fetchDevices(authenticationClientToonAPI)
 			.then(tempDevices => {
 				authenticationClientToonAPI.destroy();
 				return tempDevices;
@@ -94,7 +94,7 @@ class ToonDriver extends OAuth2Driver {
 	 * @param authenticationClientToonAPI
 	 * @returns {Promise}
 	 */
-	fetchDevices(authenticationClientToonAPI, data) {
+	fetchDevices(authenticationClientToonAPI) {
 		return authenticationClientToonAPI.getAgreements().then(agreements => {
 			if (Array.isArray(agreements)) {
 				return agreements.map(agreement => ({
@@ -104,13 +104,6 @@ class ToonDriver extends OAuth2Driver {
 					data: {
 						id: agreement.displayCommonName,
 						agreementId: agreement.agreementId,
-					},
-					store: {
-						tempOAuth2Account: Object.assign({
-							accessToken: data.oauth2Account.accessToken,
-							refreshToken: data.oauth2Account.refreshToken,
-							// id: <insert_username>, // Add a id property if you know this device is from a different account and if multiple accounts are allowed
-						}, oauth2ClientConfig),
 					},
 				}));
 			}
