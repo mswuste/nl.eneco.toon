@@ -4,7 +4,7 @@
   "description": "Let Homey control your Toon®!",
   "main": "app.js",
   "dependencies": {
-    "homey-log": "^1.0.3",
+    "homey-log": "git+https://github.com/athombv/node-homey-log.git",
     "homey-wifidriver": "git+https://github.com/athombv/node-homey-wifidriver.git",
     "request": "^2.81.0",
     "request-promise-native": "^1.0.4",
