@@ -4,7 +4,6 @@ const Homey = require('homey');
 
 const ToonDevice = require('./device.js');
 const OAuth2Driver = require('homey-wifidriver').OAuth2Driver;
-const ToonAPI = require('./../../lib/node-toon');
 
 const oauth2ClientConfig = {
 	url: `https://api.toonapi.com/authorize?response_type=code&client_id=${Homey.env.TOON_KEY}&redirect_uri=https://callback.athom.com/oauth2/callback/`,
@@ -59,25 +58,29 @@ class ToonDriver extends OAuth2Driver {
 	 * The method will be called during pairing when a list of devices is needed. Only when this class
 	 * extends WifiDriver and provides a oauth2ClientConfig onInit. The data parameter contains an
 	 * temporary OAuth2 account that can be used to fetch the devices from the users account.
-	 * @param data {Object}
 	 * @returns {Promise}
 	 */
-	onPairOAuth2ListDevices(data) {
-
-		// Create temporary toonAPI client with temporary account
-		const authenticationClientToonAPI = new ToonAPI({
-			oauth2Account: data.oauth2Account,
-			log: this.log,
-			error: this.error,
-		});
-
-		// Return promise that fetches devices from account
-		return this.fetchDevices(authenticationClientToonAPI)
-			.then(tempDevices => {
-				authenticationClientToonAPI.destroy();
-				return tempDevices;
+	onPairOAuth2ListDevices() {
+		return this.apiCallGet({ uri: 'https://api.toonapi.com/toon/api/v1/agreements' })
+			.then(agreements => {
+				this.log(`got ${agreements.length} agreements`);
+				if (Array.isArray(agreements)) {
+					return agreements.map(agreement => ({
+						name: (agreements.length > 1) ? `Toon®: ${agreement.street} 
+												${agreement.houseNumber} , ${agreement.postalCode} 
+												${agreement.city.charAt(0)}${agreement.city.slice(1).toLowerCase()}` : 'Toon®',
+						data: {
+							id: agreement.displayCommonName,
+							agreementId: agreement.agreementId,
+						},
+					}));
+				}
+				return [];
 			})
-			.catch(err => this.error(err.stack));
+			.catch(err => {
+				this.error('failed to get agreements', err.stack);
+				throw err;
+			});
 	}
 
 	/**
@@ -86,29 +89,6 @@ class ToonDriver extends OAuth2Driver {
 	 */
 	mapDeviceClass() {
 		return ToonDevice;
-	}
-
-	/**
-	 * This method will be called during pairing to retrieve a list of devices
-	 * connected to the user's account.
-	 * @param authenticationClientToonAPI
-	 * @returns {Promise}
-	 */
-	fetchDevices(authenticationClientToonAPI) {
-		return authenticationClientToonAPI.getAgreements().then(agreements => {
-			if (Array.isArray(agreements)) {
-				return agreements.map(agreement => ({
-					name: (agreements.length > 1) ? `Toon®: ${agreement.street} 
-												${agreement.houseNumber} , ${agreement.postalCode} 
-												${agreement.city.charAt(0)}${agreement.city.slice(1).toLowerCase()}` : 'Toon®',
-					data: {
-						id: agreement.displayCommonName,
-						agreementId: agreement.agreementId,
-					},
-				}));
-			}
-			return [];
-		});
 	}
 }
 
