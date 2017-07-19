@@ -2,10 +2,7 @@
 
 const Homey = require('homey');
 const _ = require('underscore');
-const OAuth2Device = require('homey-wifidriver').OAuth2Device//OAuth2Device;
-
-// TODO onInit retry
-// TODO login to different account
+const OAuth2Device = require('homey-wifidriver').OAuth2Device;
 
 // States map
 const states = {
@@ -40,17 +37,31 @@ class ToonDevice extends OAuth2Device {
 
 		this.setUnavailable(Homey.__('connecting'));
 
+		// Migrate access token
 		this.migrateToSDKv2();
 
-		this.registerPollIntervals();
+		// Register capability listeners
 		this.registerCapabilityListener('target_temperature', this.onCapabilityTargetTemperature.bind(this));
 		this.registerCapabilityListener('temperature_state', this.onCapabilityTemperatureState.bind(this));
 
-		this.setAgreement()
-			.then(this.getTemperatureData.bind(this))
-			.catch(err => {
-				this.error(err.stack);
-			});
+		// Initialize this ToonDevice, if it fails start back off strategy which retries until resolved
+		this.registerBackOffStrategy({
+			id: 'initialisation',
+			onBackOffReady: this.initialize.bind(this),
+			initialDelay: 15000,
+			maxDelay: 15 * 60 * 1000,
+			startImmediately: true,
+		});
+	}
+
+	/**
+	 * Call serveral async methods that will initialize this device.
+	 * @returns {Promise}
+	 */
+	async initialize() {
+		await this.setAgreement();
+		await this.getTemperatureData();
+		await this.registerPollIntervals();
 	}
 
 	/**
@@ -101,6 +112,9 @@ class ToonDevice extends OAuth2Device {
 	 */
 	onDeleted() {
 		this.log('onDeleted()');
+
+		// Delete used account
+		this.getDriver().oauth2Client.deleteAccount(this.oauth2Account);
 		super.onDeleted();
 	}
 
@@ -353,8 +367,8 @@ class ToonDevice extends OAuth2Device {
 	 * Toon object, this is a connection to the device.
 	 * @returns {*}
 	 */
-	setAgreement() {
-		this.log(`set agreement ${this.getData().agreementId}`);
+	setAgreement(retryOnFail = false) {
+		this.log(`set agreement ${this.getData().agreementId} (retryOnFail: ${retryOnFail})`);
 
 		if (!this.getData().agreementId) {
 			this.error('no agreementId found');
@@ -362,7 +376,10 @@ class ToonDevice extends OAuth2Device {
 		}
 
 		// Make the request to set agreement
-		return this.apiCallPost({ uri: 'agreements' }, { agreementId: this.getData().agreementId })
+		return this.apiCallPost({
+			uri: 'agreements',
+			retryOnFail: retryOnFail
+		}, { agreementId: this.getData().agreementId })
 			.then(result => {
 				this.log('successful post of agreement');
 
@@ -402,14 +419,21 @@ class ToonDevice extends OAuth2Device {
 		if (err.name === 'WebAPIServerError' && err.statusCode === 500) {
 
 			if (err.errorResponse.type === 'communicationError' || err.errorResponse.errorCode === 'communicationError') {
-				return this.setUnavailable(Homey.__('offline')).catch(err => this.error('could not setUnavailable()', err));
+				return this.setUnavailable(Homey.__('offline'))
+					.then(() => Promise.reject('device_offline'));
 			}
 
+			this.log('webAPIErrorHandler -> retry setAgreement');
+
 			// Set agreement and retry failed request
-			return this.setAgreement(false)
+			return this.setAgreement()
 				.then(() => this.apiCall(err.requestOptions))
 				.then(() => this.log('set agreement and retry succeeded'))
-				.catch(err => this.error('set agreement succeeded retry failed', err));
+				.catch(err => {
+					this.error('set agreement succeeded retry failed', err)
+					throw err;
+				});
+
 		}
 		throw err;
 	}
