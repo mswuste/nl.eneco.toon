@@ -37,11 +37,11 @@ class ToonDriver extends OAuth2Driver {
 
 		new Homey.FlowCardAction('enable_program')
 			.register()
-			.registerRunListener(args => args.device.toonAPI.enableProgram());
+			.registerRunListener(args => args.device.enableProgram());
 
 		new Homey.FlowCardAction('disable_program')
 			.register()
-			.registerRunListener(args => args.device.toonAPI.disableProgram());
+			.registerRunListener(args => args.device.disableProgram());
 
 		this.log('onInit() -> complete, Flow Cards registered');
 	}
