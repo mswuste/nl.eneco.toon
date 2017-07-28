@@ -26,30 +26,22 @@ class ToonDriver extends OAuth2Driver {
 		});
 
 		new Homey.FlowCardCondition('temperature_state_is')
-			.on('run', (args, state, callback) => {
-				const temperatureState = args.device.getCapabilityValue('temperature_state');
-				return callback(null, temperatureState === args.state);
-			})
-			.register();
+			.register()
+			.registerRunListener(args =>
+				Promise.resolve(args.device.getCapabilityValue('temperature_state') === args.state));
 
 		new Homey.FlowCardAction('set_temperature_state')
-			.on('run', (args, state, callback) =>
-				args.device.onCapabilityTemperatureState(args.state, (args.resume_program === 'yes'))
-					.then(() => callback(null, true))
-					.catch(err => callback(err)))
-			.register();
+			.register()
+			.registerRunListener(args =>
+				args.device.onCapabilityTemperatureState(args.state, (args.resume_program === 'yes')));
 
 		new Homey.FlowCardAction('enable_program')
-			.on('run', (args, state, callback) => args.device.toonAPI.enableProgram()
-				.then(() => callback(null, true))
-				.catch(err => callback(err)))
-			.register();
+			.register()
+			.registerRunListener(args => args.device.toonAPI.enableProgram());
 
 		new Homey.FlowCardAction('disable_program')
-			.on('run', (args, state, callback) => args.device.toonAPI.disableProgram()
-				.then(() => callback(null, true))
-				.catch(err => callback(err)))
-			.register();
+			.register()
+			.registerRunListener(args => args.device.toonAPI.disableProgram());
 
 		this.log('onInit() -> complete, Flow Cards registered');
 	}
