@@ -396,6 +396,8 @@ class ToonDevice extends OAuth2Device {
 	 * @returns {*}
 	 */
 	webAPIErrorHandler(err) {
+		super.webAPIErrorHandler(err);
+
 		this.error('webAPIErrorHandler', err);
 
 		// Detect error that is returned when Toon is offline
