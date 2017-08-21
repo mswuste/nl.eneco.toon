@@ -396,8 +396,6 @@ class ToonDevice extends OAuth2Device {
 	 * @returns {*}
 	 */
 	webAPIErrorHandler(err) {
-		super.webAPIErrorHandler(err);
-
 		this.error('webAPIErrorHandler', err);
 
 		// Detect error that is returned when Toon is offline
@@ -413,7 +411,9 @@ class ToonDevice extends OAuth2Device {
 				.then(() => this.log('set agreement and retry succeeded'))
 				.catch(err => this.error('set agreement succeeded retry failed', err));
 		}
-		throw err;
+
+		// Let OAuth2/WebAPIDevice handle the error
+		super.webAPIErrorHandler(err);
 	}
 }
 
