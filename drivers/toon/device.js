@@ -149,8 +149,8 @@ class ToonDevice extends OAuth2Device {
 				if (result && result.thermostatInfo) {
 
 					// Store new values
-					if (typeof result.thermostatInfo.currentTemp !== 'undefined') {
-						this.measureTemperature = Math.round((result.thermostatInfo.currentTemp / 100) * 10) / 10;
+					if (typeof result.thermostatInfo.currentDisplayTemp !== 'undefined') {
+						this.measureTemperature = Math.round((result.thermostatInfo.currentDisplayTemp / 100) * 10) / 10;
 						this.log('measure_temperature', this.measureTemperature);
 						this.setCapabilityValue('measure_temperature', this.measureTemperature);
 					}
