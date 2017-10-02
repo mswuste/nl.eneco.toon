@@ -151,26 +151,24 @@ class ToonDevice extends OAuth2Device {
 					// Store new values
 					if (typeof result.thermostatInfo.currentDisplayTemp !== 'undefined') {
 						this.measureTemperature = Math.round((result.thermostatInfo.currentDisplayTemp / 100) * 10) / 10;
-						this.log('measure_temperature', this.measureTemperature);
+						// this.log('measure_temperature', this.measureTemperature);
 						this.setCapabilityValue('measure_temperature', this.measureTemperature);
 					}
 
 					if (typeof result.thermostatInfo.currentSetpoint !== 'undefined') {
 						this.targetTemperature = Math.round((result.thermostatInfo.currentSetpoint / 100) * 10) / 10;
-						this.log('target_temperature', this.targetTemperature);
+						// this.log('target_temperature', this.targetTemperature);
 						this.setCapabilityValue('target_temperature', this.targetTemperature);
 					}
 
 					if (typeof result.thermostatInfo.activeState !== 'undefined') {
 						this.temperatureState = Object.keys(states).filter(key => states[key] === result.thermostatInfo.activeState)[0];
-						this.log('temperature_state', this.temperatureState)
+						// this.log('temperature_state', this.temperatureState);
 						this.setCapabilityValue('temperature_state', this.temperatureState);
 					}
-				} else this.log('no new temperature data available');
+				}
 			})
 			.then(() => {
-				this.log('get status complete');
-
 				if (initialized) this.setAvailable();
 
 				return {
