@@ -2,19 +2,10 @@
 
 const Homey = require('homey');
 const _ = require('underscore');
-const OAuth2Device = require('homey-wifidriver').OAuth2Device//OAuth2Device;
+const OAuth2Device = require('homey-wifidriver').OAuth2Device;
 
 // TODO onInit retry
 // TODO login to different account
-
-// States map
-const states = {
-	comfort: 0,
-	home: 1,
-	sleep: 2,
-	away: 3,
-	none: -1,
-};
 
 class ToonDevice extends OAuth2Device {
 
@@ -37,6 +28,15 @@ class ToonDevice extends OAuth2Device {
 		});
 
 		this.log('init ToonDevice');
+
+		// Keep track of temperature states
+		this.temperatureStatesMap = {
+			comfort: { id: 0, temperature: 20, },
+			home: { id: 1, temperature: 18, },
+			sleep: { id: 2, temperature: 15, },
+			away: { id: 3, temperature: 12, },
+			none: { id: -1, }
+		};
 
 		this.setUnavailable(Homey.__('connecting'));
 
@@ -145,26 +145,43 @@ class ToonDevice extends OAuth2Device {
 					initialized = true;
 				}
 
-				// Check for temperature data
-				if (result && result.thermostatInfo) {
+				// Check for data
+				if (result) {
 
-					// Store new values
-					if (typeof result.thermostatInfo.currentDisplayTemp !== 'undefined') {
-						this.measureTemperature = Math.round((result.thermostatInfo.currentDisplayTemp / 100) * 10) / 10;
-						// this.log('measure_temperature', this.measureTemperature);
-						this.setCapabilityValue('measure_temperature', this.measureTemperature);
+					// Check for thermostat information
+					if (result.thermostatInfo) {
+
+						// Store new values
+						if (typeof result.thermostatInfo.currentDisplayTemp !== 'undefined') {
+							this.measureTemperature = Math.round((result.thermostatInfo.currentDisplayTemp / 100) * 10) / 10;
+							// this.log('measure_temperature', this.measureTemperature);
+							this.setCapabilityValue('measure_temperature', this.measureTemperature);
+						}
+
+						if (typeof result.thermostatInfo.currentSetpoint !== 'undefined') {
+							this.targetTemperature = Math.round((result.thermostatInfo.currentSetpoint / 100) * 10) / 10;
+							// this.log('target_temperature', this.targetTemperature);
+							this.setCapabilityValue('target_temperature', this.targetTemperature);
+						}
+
+						if (typeof result.thermostatInfo.activeState !== 'undefined') {
+							this.temperatureState = _.findKey(this.temperatureStatesMap, { id: result.thermostatInfo.activeState });
+							// this.log('temperature_state', this.temperatureState);
+							this.setCapabilityValue('temperature_state', this.temperatureState);
+						}
 					}
 
-					if (typeof result.thermostatInfo.currentSetpoint !== 'undefined') {
-						this.targetTemperature = Math.round((result.thermostatInfo.currentSetpoint / 100) * 10) / 10;
-						// this.log('target_temperature', this.targetTemperature);
-						this.setCapabilityValue('target_temperature', this.targetTemperature);
-					}
+					// Check for updated thermostat states
+					if (result.thermostatStates && result.thermostatStates.hasOwnProperty('state')) {
 
-					if (typeof result.thermostatInfo.activeState !== 'undefined') {
-						this.temperatureState = Object.keys(states).filter(key => states[key] === result.thermostatInfo.activeState)[0];
-						// this.log('temperature_state', this.temperatureState);
-						this.setCapabilityValue('temperature_state', this.temperatureState);
+						// Update state temperature map
+						const states = result.thermostatStates.state;
+						for (let i in this.temperatureStatesMap) {
+							const state = this.temperatureStatesMap[i];
+							if (state.hasOwnProperty('temperature')) {
+								state.temperature = Math.round((_.findWhere(states, { id: state.id }).tempValue / 100) * 10) / 10;
+							}
+						}
 					}
 				}
 			})
@@ -217,16 +234,22 @@ class ToonDevice extends OAuth2Device {
 
 	/**
 	 * Set the state of the device, overrides the program.
-	 * @param state ['away', 'home', 'sleep', ['comfort']
+	 * @param state ['away', 'home', 'sleep', 'comfort']
 	 * @param keepProgram - if true program will resume after state change
 	 */
 	updateState(state, keepProgram) {
 
-		const data = { temperatureState: states[state] };
+		const stateObj = this.temperatureStatesMap[state];
+		const data = { temperatureState: stateObj.id };
 
 		if (keepProgram) data.state = 2;
 
-		this.log(`set state to ${state} (${states[state]}), data:${JSON.stringify(data)}`);
+		this.log(`set state to ${stateObj.id} (${state}), data:${JSON.stringify(data)}`);
+
+		// Directly update target temperature
+		if (stateObj.hasOwnProperty('temperature')) {
+			this.setCapabilityValue('target_temperature', stateObj.temperature);
+		}
 
 		return this.apiCallPut({ uri: 'temperature/states' }, data);
 	}
