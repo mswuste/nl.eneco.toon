@@ -7,9 +7,6 @@
     "en": "Toon®",
     "nl": "Toon®"
   },
-  "permissions": [
-    "homey:manager:geolocation"
-  ],
   "description": {
     "en": "Toon®",
     "nl": "Toon®"
