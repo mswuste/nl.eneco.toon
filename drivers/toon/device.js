@@ -4,9 +4,6 @@ const Homey = require('homey');
 const _ = require('underscore');
 const OAuth2Device = require('homey-wifidriver').OAuth2Device;
 
-// TODO onInit retry
-// TODO login to different account
-
 class ToonDevice extends OAuth2Device {
 
 	/**
@@ -53,27 +50,90 @@ class ToonDevice extends OAuth2Device {
 			});
 	}
 
+	parseData(data) {
+		if (data.hasOwnProperty('hours') && Array.isArray(data.hours)) {
+			for (let entry of data.hours) {
+				entry.date = new Date(entry.timestamp).toString();
+				if (entry.unit === 'l') {
+					entry.valueM3 = Math.max(0, entry.value / 1000);
+				} else if (entry.unit === 'lh') {
+					entry.valueM3h = Math.max(0, entry.value / 1000);
+				} else if (entry.unit === 'W') {
+					entry.value = Math.max(0, entry.value);
+				}
+			}
+			data.hours = data.hours.reverse();
+		}
+	}
+
 	/**
 	 * Register several polling intervals.
 	 */
-	registerPollIntervals() {
+	async registerPollIntervals() {
 		this.registerPollInterval({
 			id: 'temperatureData',
 			fn: this.getTemperatureData.bind(this),
 			interval: 30000, // 30 sec
 		});
 
-		// this.registerPollInterval({
-		// 	id: 'getGasData',
-		// 	fn: this.getGasData.bind(this),
-		// 	interval: 300000, // 5 min
-		// });
-		//
-		// this.registerPollInterval({
-		// 	id: 'getElectricityData',
-		// 	fn: this.getElectricityData().bind(this),
-		// 	interval: 300000, // 5 min
-		// });
+		this.registerPollInterval({
+			id: 'gasData',
+			fn: async () => {
+				const gasData = await this.apiCallGet({ uri: 'consumption/gas/data' });
+				this.parseData(gasData);
+				this.log('consumption/gas/data result:');
+				this.log(gasData.hours.slice(0, 5));
+
+				if (gasData.hours[0].timestamp > this.gasDataTimestamp || typeof this.gasDataTimestamp === 'undefined') {
+					this.setCapabilityValue('meter_gas', gasData.hours[0].valueM3);
+				}
+				this.gasDataTimestamp = gasData.hours[0].timestamp;
+			},
+			interval: 30000,
+		});
+
+		this.registerPollInterval({
+			id: 'gasFlow',
+			fn: async () => {
+				const gasFlows = await this.apiCallGet({ uri: 'consumption/gas/flows' });
+				this.parseData(gasFlows);
+				this.log('consumption/gas/flows result:');
+				this.log(gasFlows.hours.slice(0, 5));
+			},
+			interval: 30000,
+		});
+
+		this.registerPollInterval({
+			id: 'electricityData',
+			fn: async () => {
+				const electricityData = await this.apiCallGet({ uri: 'consumption/electricity/data' });
+				this.parseData(electricityData);
+				this.log('consumption/electricity/data result:');
+				this.log(electricityData.hours.slice(0, 5));
+
+				if (electricityData.hours[0].timestamp > this.electricityDataTimestamp || typeof this.electricityDataTimestamp === 'undefined') {
+					this.setCapabilityValue('meter_power', electricityData.hours[0].offPeak);
+				}
+				this.electricityDataTimestamp = electricityData.hours[0].timestamp;
+			},
+			interval: 30000,
+		});
+
+		this.registerPollInterval({
+			id: 'electricityFlow',
+			fn: async () => {
+				const electricityFlows = await this.apiCallGet({ uri: 'consumption/electricity/flows' });
+				this.parseData(electricityFlows);
+				this.log('consumption/electricity/flows result:');
+				this.log(electricityFlows.hours.slice(0, 5));
+
+				if (electricityFlows.hours[0].timestamp > this.electricityFlowTimestamp || typeof this.electricityFlowTimestamp === 'undefined') {
+					this.setCapabilityValue('measure_power', electricityFlows.hours[0].value);
+				}
+				this.electricityFlowTimestamp = electricityFlows.hours[0].timestamp;
+			},
+			interval: 30000,
+		});
 	}
 
 	/**
