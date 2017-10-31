@@ -1,6 +1,6 @@
 {
   "id": "nl.eneco.toon",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "compatibility": ">=1.5.0",
   "sdk": 2,
   "name": {
@@ -103,7 +103,10 @@
           {
             "id": "sensor",
             "capabilities": [
-              "measure_temperature"
+              "measure_temperature",
+              "measure_power",
+              "meter_power",
+              "meter_gas"
             ]
           },
           {

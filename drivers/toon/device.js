@@ -26,6 +26,10 @@ class ToonDevice extends OAuth2Device {
 
 		this.log('init ToonDevice');
 
+		// TODO make this resetable by user (on interval?)
+		this.meterPowerCummulative = 0;
+		this.meterGasCummulative = 0;
+
 		// Keep track of temperature states
 		this.temperatureStatesMap = {
 			comfort: { id: 0, temperature: 20, },
@@ -50,89 +54,123 @@ class ToonDevice extends OAuth2Device {
 			});
 	}
 
+	/**
+	 * Parse incoming gas/electricity data
+	 * @param data
+	 */
 	parseData(data) {
 		if (data.hasOwnProperty('hours') && Array.isArray(data.hours)) {
+			data.hours = data.hours.sort((a, b) => a.timestamp < b.timestamp ? -1 : 1);
 			for (let entry of data.hours) {
 				entry.date = new Date(entry.timestamp).toString();
 				if (entry.unit === 'l') {
-					entry.valueM3 = Math.max(0, entry.value / 1000);
+					entry.value = Math.max(0, entry.value / 1000);
+					entry.unit = 'm3';
 				} else if (entry.unit === 'lh') {
-					entry.valueM3h = Math.max(0, entry.value / 1000);
+					entry.value = Math.max(0, entry.value / 1000);
+					entry.unit = 'm3h';
 				} else if (entry.unit === 'W') {
 					entry.value = Math.max(0, entry.value);
+				} else if (entry.unit === 'Wh') {
+					entry.value = Math.max(0, entry.peak / 1000);
+					entry.unit = 'kWh';
 				}
+				delete entry.timestamp;
 			}
 			data.hours = data.hours.reverse();
 		}
 	}
 
 	/**
+	 * Create an epoch timestamp in ms 2 hours back.
+	 * @returns {number}
+	 */
+	get fromTime() {
+		let fromTime = new Date();
+		fromTime.setHours(fromTime.getHours() - 2);
+		fromTime = fromTime.getTime();
+		return fromTime;
+	}
+
+	/**
+	 * Create an epoch timestamp in ms.
+	 * @returns {number}
+	 */
+	get toTime() {
+		return (new Date).getTime();
+	}
+
+	/**
 	 * Register several polling intervals.
 	 */
 	async registerPollIntervals() {
+
 		this.registerPollInterval({
 			id: 'temperatureData',
 			fn: this.getTemperatureData.bind(this),
 			interval: 30000, // 30 sec
 		});
 
-		this.registerPollInterval({
-			id: 'gasData',
-			fn: async () => {
-				const gasData = await this.apiCallGet({ uri: 'consumption/gas/data' });
-				this.parseData(gasData);
-				this.log('consumption/gas/data result:');
-				this.log(gasData.hours.slice(0, 5));
-
-				if (gasData.hours[0].timestamp > this.gasDataTimestamp || typeof this.gasDataTimestamp === 'undefined') {
-					this.setCapabilityValue('meter_gas', gasData.hours[0].valueM3);
-				}
-				this.gasDataTimestamp = gasData.hours[0].timestamp;
-			},
-			interval: 30000,
-		});
-
+		// Meter gas check
 		this.registerPollInterval({
 			id: 'gasFlow',
 			fn: async () => {
-				const gasFlows = await this.apiCallGet({ uri: 'consumption/gas/flows' });
+				const gasFlows = await this.apiCallGet({ uri: `consumption/gas/flows?fromTime=${this.fromTime}&toTime=${this.toTime}` });
 				this.parseData(gasFlows);
-				this.log('consumption/gas/flows result:');
-				this.log(gasFlows.hours.slice(0, 5));
+
+				this.log('gasFlow');
+				this.log(gasFlows.hours[0]);
+
+				if (gasFlows && Array.isArray(gasFlows.hours)) {
+					if (gasFlows.hours[0].timestamp > this.gasDataTimestamp || typeof this.gasDataTimestamp === 'undefined') {
+						this.meterGasCummulative = this.meterGasCummulative + gasFlows.hours[0].value;
+						this.setCapabilityValue('meter_gas', this.meterGasCummulative);
+						this.log('meter_gas', this.meterGasCummulative);
+					}
+				}
+				this.gasDataTimestamp = gasFlows.hours[0].timestamp;
 			},
-			interval: 30000,
+			interval: 5 * 60 * 1000,
 		});
 
+		// Meter power check
 		this.registerPollInterval({
 			id: 'electricityData',
 			fn: async () => {
-				const electricityData = await this.apiCallGet({ uri: 'consumption/electricity/data' });
+				const electricityData = await this.apiCallGet({ uri: `consumption/electricity/data?fromTime=${this.fromTime}&toTime=${this.toTime}` });
 				this.parseData(electricityData);
-				this.log('consumption/electricity/data result:');
-				this.log(electricityData.hours.slice(0, 5));
+
+				this.log('electricityData');
+				this.log(electricityData.hours[0]);
 
 				if (electricityData.hours[0].timestamp > this.electricityDataTimestamp || typeof this.electricityDataTimestamp === 'undefined') {
-					this.setCapabilityValue('meter_power', electricityData.hours[0].offPeak);
+					this.meterPowerCummulative = this.meterPowerCummulative + electricityData.hours[0].value;
+					this.setCapabilityValue('meter_power', this.meterPowerCummulative);
+					this.log('meter_power', this.meterPowerCummulative);
 				}
 				this.electricityDataTimestamp = electricityData.hours[0].timestamp;
 			},
-			interval: 30000,
+			interval: 5 * 60 * 1000,
 		});
 
+
+		// Measure power check
 		this.registerPollInterval({
 			id: 'electricityFlow',
 			fn: async () => {
-				const electricityFlows = await this.apiCallGet({ uri: 'consumption/electricity/flows' });
+				const electricityFlows = await this.apiCallGet({ uri: `consumption/electricity/flows?fromTime=${this.fromTime}&toTime=${this.toTime}` });
 				this.parseData(electricityFlows);
-				this.log('consumption/electricity/flows result:');
-				this.log(electricityFlows.hours.slice(0, 5));
+
+				this.log('electricityFlows');
+				this.log(electricityFlows.hours[0]);
 
 				if (electricityFlows.hours[0].timestamp > this.electricityFlowTimestamp || typeof this.electricityFlowTimestamp === 'undefined') {
 					this.setCapabilityValue('measure_power', electricityFlows.hours[0].value);
+					this.log('measure_power', electricityFlows.hours[0].value);
 				}
 				this.electricityFlowTimestamp = electricityFlows.hours[0].timestamp;
 			},
-			interval: 30000,
+			interval: 5 * 60 * 1000,
 		});
 	}
 
