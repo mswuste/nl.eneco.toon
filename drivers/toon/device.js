@@ -41,228 +41,20 @@ class ToonDevice extends OAuth2Device {
 
 		this.migrateToSDKv2();
 
-		this.registerPollIntervals();
+		// Register poll interval for thermostat data
+		this.registerPollInterval({
+			id: 'data',
+			fn: this.getThermostatData.bind(this),
+			interval: 15 * 1000,
+		});
+
+		// Register capability listeners
 		this.registerCapabilityListener('target_temperature', this.onCapabilityTargetTemperature.bind(this));
 		this.registerCapabilityListener('temperature_state', this.onCapabilityTemperatureState.bind(this));
 
 		// Set agreement and then continue with fetching data
 		await this.setAgreement();
-		await this.getTemperatureData();
-		await this.getGasUsageCumulative(this.getSetting('meter_gas_from_time'));
-		await this.getMeterPowerCumulative(this.getSetting('meter_power_from_time'));
-	}
-
-	/**
-	 * Create an epoch timestamp in ms from last midnight.
-	 * @returns {number}
-	 */
-	get currentDayStartTimestamp() {
-		const d = new Date();
-		d.setHours(0, 0, 0, 0);
-		return d.getTime();
-	}
-
-	/**
-	 * Create an epoch timestamp in ms from the start of the current month.
-	 * @returns {number}
-	 */
-	get currentMonthStartTimestamp() {
-		const date = new Date();
-		const d = new Date(date.getFullYear(), date.getMonth(), 1);
-		return d.getTime();
-	}
-
-	/**
-	 * Create an epoch timestamp in ms from the start of the current year.
-	 * @returns {number}
-	 */
-	get currentYearStartTimestamp() {
-		const d = new Date(new Date().getFullYear(), 0, 1);
-		return d.getTime();
-	}
-
-	/**
-	 * Convert user setting to epoch timestamp in ms.
-	 * @param {string} input - ['day', 'month', 'year']
-	 * @returns {number}
-	 */
-	convertSettingToTimestamp(input) {
-		switch (input) {
-			case 'day':
-				return this.currentDayStartTimestamp;
-			case 'month':
-				return this.currentMonthStartTimestamp;
-			case 'year':
-				return this.currentYearStartTimestamp;
-			default:
-				this.log('warning invalid setting value provided, use default day timestamp', input);
-				return this.currentDayStartTimestamp;
-		}
-	}
-
-	/**
-	 * Parse incoming gas/electricity data.
-	 * @param data
-	 */
-	parseData(data = {}) {
-		if (data.hasOwnProperty('hours') && Array.isArray(data.hours)) {
-
-			// Sort array from most recent to oldest
-			data.hours = data.hours.sort((a, b) => a.timestamp < b.timestamp ? 1 : -1);
-
-			// Calculate appropriate units
-			for (let entry of data.hours) {
-
-				// TODO remove this
-				entry.date = new Date(entry.timestamp).toString();
-
-				if (entry.unit === 'l') {
-					entry.value = Math.max(0, entry.value / 1000);
-					entry.unit = 'm3';
-				} else if (entry.unit === 'lh') {
-					entry.value = Math.max(0, entry.value / 1000);
-					entry.unit = 'm3h';
-				} else if (entry.unit === 'W') {
-					entry.value = Math.max(0, entry.value);
-				} else if (entry.unit === 'Wh') {
-					entry.value = Math.max(0, entry.peak / 1000);
-					entry.unit = 'kWh';
-				}
-
-				// TODO remove this
-				delete entry.timestamp;
-			}
-		}
-		return data;
-	}
-
-	/**
-	 * This method performs an API call to retrieve the measure_power data. It will update the capability if a new data
-	 * entry is received, this is matched on timestamp.
-	 * @returns {Promise.<*>}
-	 */
-	async getElectricityFlows() {
-		let electricityFlows = await this.apiCallGet({ uri: `consumption/electricity/flows` });
-		electricityFlows = this.parseData(electricityFlows);
-
-		this.log(`getElectricityFlows() -> processing ${electricityFlows.hours.length} items`);
-
-		if (electricityFlows && Array.isArray(electricityFlows.hours)) {
-			if (electricityFlows.hours[0].timestamp > this.electricityFlowTimestamp ||
-				typeof this.electricityFlowTimestamp === 'undefined') {
-
-				this.setCapabilityValue('measure_power', electricityFlows.hours[0].value);
-				this.log(`getElectricityFlows() -> update measure_power to ${electricityFlows.hours[0].value}`);
-			}
-
-			// Update last known timestamp
-			this.electricityFlowTimestamp = electricityFlows.hours[0].timestamp;
-		}
-		return electricityFlows;
-	}
-
-	/**
-	 * This method performs an API call to retrieve the meter_power data. It will calculate the cumulative value based
-	 * on historical data (max one year back, approx. 10000 items).
-	 * @param {number} fromTime - Timestamp in epoch ms.
-	 * @param {number} toTime - Timestamp in epoch ms.
-	 * @returns {Promise.<number>}
-	 */
-	async getMeterPowerCumulative(fromTime = this.currentDayStartTimestamp, toTime = (new Date).getTime()) {
-		this.log(`getMeterPowerCumulative() -> ${fromTime}`);
-
-		// Determine fromTime from settings
-		fromTime = this.convertSettingToTimestamp(fromTime);
-
-		// Retrieve and parse electricity data
-		let electricityData = await this.apiCallGet({ uri: `consumption/electricity/data?fromTime=${fromTime}&toTime=${toTime}` });
-		electricityData = this.parseData(electricityData);
-		if (!electricityData || !Array.isArray(electricityData.hours)) return null;
-
-		this.log(`getMeterPowerCumulative() -> processing ${electricityData.hours.length} items`);
-		this.log(electricityData.hours.splice(0, 10));
-
-		// Add all historical values
-		let meterPowerCumulative = electricityData.hours.reduce((a, b) => a + b.value, 0);
-		this.log(`getMeterPowerCumulative() -> update meter_power to ${meterPowerCumulative}`);
-
-		// Explicitly destroy data object as it can be very large
-		electricityData = null;
-
-		// Update capability
-		this.setCapabilityValue('meter_power', meterPowerCumulative);
-		return meterPowerCumulative;
-	}
-
-	/**
-	 * This method performs an API call to retrieve the meter_gas data. It will calculate the cumulative value based
-	 * on historical data (max one year back, approx. 10000 items).
-	 * @param {number} fromTime - Timestamp in epoch ms.
-	 * @param {number} toTime - Timestamp in epoch ms.
-	 * @returns {Promise.<number>}
-	 */
-	async getGasUsageCumulative(fromTime = this.currentDayStartTimestamp, toTime = (new Date).getTime()) {
-		this.log(`getGasUsageCumulative() -> ${fromTime}`);
-
-		// Determine fromTime from settings
-		fromTime = this.convertSettingToTimestamp(fromTime);
-
-		// Retrieve and parse gas usage data
-		let gasUsageData = await this.apiCallGet({ uri: `consumption/gas/flows?fromTime=${fromTime}&toTime=${toTime}` });
-		gasUsageData = this.parseData(gasUsageData);
-		if (!gasUsageData || !Array.isArray(gasUsageData.hours)) return null;
-
-		this.log(`getGasUsageCumulative() -> processing ${gasUsageData.hours.length} items`);
-		this.log(gasUsageData.hours.splice(0, 10));
-
-		// Add all historical values
-		let gasMeterCumulative = gasUsageData.hours.reduce((a, b) => a + b.value, 0);
-		this.log(`getGasUsageCumulative() -> update meter_gas to ${gasMeterCumulative}`);
-
-		// Explicitly destroy data object as it can be very large
-		gasUsageData = null;
-
-		// Update capability
-		this.setCapabilityValue('meter_gas', gasMeterCumulative);
-		return gasMeterCumulative;
-	}
-
-	/**
-	 * Register several polling intervals.
-	 */
-	async registerPollIntervals() {
-
-		// target_temperature & measure_temperature
-		this.registerPollInterval({
-			id: 'temperatureData',
-			fn: this.getTemperatureData.bind(this),
-			interval: 30000, // every 30 sec
-		});
-
-		// meter_gas
-		this.registerPollInterval({
-			id: 'gasFlow',
-			fn: () => {
-				return this.getGasUsageCumulative(this.getSetting('meter_gas_from_time'));
-			},
-			interval: 60 * 60 * 1000, // every hour
-		});
-
-		// meter_power
-		this.registerPollInterval({
-			id: 'electricityData',
-			fn: () => {
-				return this.getMeterPowerCumulative(this.getSetting('meter_power_from_time'));
-			},
-			interval: 60 * 60 * 1000, // every hour
-		});
-
-		// measure_power
-		this.registerPollInterval({
-			id: 'electricityFlow',
-			fn: this.getElectricityFlows.bind(this),
-			interval: 5 * 60 * 1000, // every 5 minutes
-		});
+		await this.getThermostatData();
 	}
 
 	/**
@@ -316,29 +108,10 @@ class ToonDevice extends OAuth2Device {
 	}
 
 	/**
-	 * This method will be called when a setting was changed by the user. It will then update the meter_power and
-	 * meter_gas cumulative periods accordingly.
-	 * @param oldSettingsObj
-	 * @param newSettingsObj
-	 * @param changedKeysArr
-	 * @returns {Promise.<T>}
-	 */
-	async onSettings(oldSettingsObj, newSettingsObj, changedKeysArr = []) {
-		if (changedKeysArr.includes('meter_power_from_time')) {
-			this.getMeterPowerCumulative(newSettingsObj['meter_power_from_time']);
-		}
-		if (changedKeysArr.includes('meter_gas_from_time')) {
-			this.getGasUsageCumulative(newSettingsObj['meter_gas_from_time']);
-		}
-
-		return Promise.resolve();
-	}
-
-	/**
 	 * This method will retrieve temperature, gas and electricity data from the Toon API.
 	 * @returns {Promise}
 	 */
-	getTemperatureData() {
+	getThermostatData() {
 		let initialized = false;
 		return this.apiCallGet({
 			uri: 'status',
@@ -355,6 +128,34 @@ class ToonDevice extends OAuth2Device {
 
 				// Check for data
 				if (result) {
+
+					// Check for power usage information
+					if (result.powerUsage) {
+
+						// Store new values
+						if (typeof result.powerUsage.value !== 'undefined') {
+							this.measurePower = result.powerUsage.value;
+							this.log('measure_power', this.measurePower);
+							this.setCapabilityValue('measure_power', this.measurePower);
+						}
+
+						if (typeof result.powerUsage.dayUsage !== 'undefined') {
+							this.meterPower = result.powerUsage.dayUsage / 1000; // Wh -> kWh
+							this.log('meter_power', this.meterPower);
+							this.setCapabilityValue('meter_power', this.meterPower);
+						}
+					}
+
+					// Check for gas usage information
+					if (result.gasUsage) {
+
+						// Store new values
+						if (typeof result.gasUsage.dayUsage !== 'undefined') {
+							this.meterGas = result.gasUsage.dayUsage / 1000; // Wh -> kWh
+							this.log('meter_gas', this.meterGas);
+							this.setCapabilityValue('meter_gas', this.meterGas);
+						}
+					}
 
 					// Check for thermostat information
 					if (result.thermostatInfo) {
@@ -492,13 +293,7 @@ class ToonDevice extends OAuth2Device {
 		return this.apiCallPost({ uri: 'agreements' }, { agreementId: this.getData().agreementId })
 			.then(result => {
 				this.log('successful post of agreement');
-
-				// Fetch initial data
-				this.getTemperatureData()
-					.then(() => result)
-					.catch(err => {
-						throw err;
-					});
+				return result;
 			})
 			.catch(err => {
 				this.error('failed to post agreement', err.stack);

@@ -1,6 +1,6 @@
 {
   "id": "nl.eneco.toon",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "compatibility": ">=1.5.0",
   "sdk": 2,
   "name": {
@@ -123,80 +123,6 @@
           }
         ]
       },
-      "settings": [
-        {
-          "id": "meter_power_from_time",
-          "type": "dropdown",
-          "value": "day",
-          "label": {
-            "en": "Show power usage since",
-            "nl": "Laat stroomverbruik zien sinds"
-          },
-          "hint": {
-            "en": "This setting determines when the cumulative power usage (kWh) should be reset to zero. This always happens at midnight.",
-            "nl": "Deze instelling bepaalt wanneer het cumulatieve stroomverbruik op nul moet worden ingesteld. Dit gebeurt altijd om middernacht."
-          },
-          "values": [
-            {
-              "id": "day",
-              "label": {
-                "en": "Today",
-                "nl": "Vandaag"
-              }
-            },
-            {
-              "id": "month",
-              "label": {
-                "en": "This month",
-                "nl": "Deze maand"
-              }
-            },
-            {
-              "id": "year",
-              "label": {
-                "en": "This year",
-                "nl": "Dit jaar"
-              }
-            }
-          ]
-        },
-        {
-          "id": "meter_gas_from_time",
-          "type": "dropdown",
-          "value": "day",
-          "label": {
-            "en": "Show gas usage since",
-            "nl": "Laat gasverbuik zien sinds"
-          },
-          "hint": {
-            "en": "This setting determines when the cumulative gas usage (kWh) should be reset to zero. This always happens at midnight.",
-            "nl": "Deze instelling bepaalt wanneer het cumulatieve gasverbruik op nul moet worden ingesteld. Dit gebeurt altijd om middernacht."
-          },
-          "values": [
-            {
-              "id": "day",
-              "label": {
-                "en": "Today",
-                "nl": "Vandaag"
-              }
-            },
-            {
-              "id": "month",
-              "label": {
-                "en": "This month",
-                "nl": "Deze maand"
-              }
-            },
-            {
-              "id": "year",
-              "label": {
-                "en": "This year",
-                "nl": "Dit jaar"
-              }
-            }
-          ]
-        }
-      ],
       "pair": [
         {
           "id": "authentication",
