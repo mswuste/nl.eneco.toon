@@ -1,15 +1,12 @@
 {
   "id": "nl.eneco.toon",
-  "version": "1.2.4",
+  "version": "1.3.3",
   "compatibility": ">=1.5.0",
   "sdk": 2,
   "name": {
     "en": "Toon®",
     "nl": "Toon®"
   },
-  "permissions": [
-    "homey:manager:geolocation"
-  ],
   "description": {
     "en": "Toon®",
     "nl": "Toon®"
@@ -106,7 +103,10 @@
           {
             "id": "sensor",
             "capabilities": [
-              "measure_temperature"
+              "measure_temperature",
+              "measure_power",
+              "meter_power",
+              "meter_gas"
             ]
           },
           {
@@ -162,12 +162,13 @@
         "tokens": [
           {
             "name": "meter_gas",
+            "type": "number",
             "title": {
               "en": "m³",
               "nl": "m³"
             },
             "example": {
-              "en": "25"
+              "en": 25
             }
           }
         ],
@@ -188,12 +189,13 @@
         "tokens": [
           {
             "name": "meter_power",
+            "type": "number",
             "title": {
               "en": "Wh",
               "nl": "Wh"
             },
             "example": {
-              "en": "75"
+              "en": 75
             }
           }
         ],
@@ -214,6 +216,7 @@
         "tokens": [
           {
             "name": "temperature_state",
+            "type": "string",
             "title": {
               "en": "state",
               "nl": "state"

@@ -4,8 +4,7 @@ const Homey = require('homey');
 const _ = require('underscore');
 const OAuth2Device = require('homey-wifidriver').OAuth2Device;
 
-// TODO onInit retry
-// TODO login to different account
+const OFFLINE_THRESHOLD = 10; // in minutes
 
 class ToonDevice extends OAuth2Device {
 
@@ -27,6 +26,8 @@ class ToonDevice extends OAuth2Device {
 			return err;
 		});
 
+		process.on('unhandledRejection', r => this.error(r.stack));
+
 		this.log('init ToonDevice');
 
 		// Keep track of temperature states
@@ -42,38 +43,20 @@ class ToonDevice extends OAuth2Device {
 
 		this.migrateToSDKv2();
 
-		this.registerPollIntervals();
+		// Register poll interval for thermostat data
+		this.registerPollInterval({
+			id: 'data',
+			fn: this.getThermostatData.bind(this),
+			interval: 15 * 1000,
+		});
+
+		// Register capability listeners
 		this.registerCapabilityListener('target_temperature', this.onCapabilityTargetTemperature.bind(this));
 		this.registerCapabilityListener('temperature_state', this.onCapabilityTemperatureState.bind(this));
 
-		this.setAgreement()
-			.then(this.getTemperatureData.bind(this))
-			.catch(err => {
-				this.error(err.stack);
-			});
-	}
-
-	/**
-	 * Register several polling intervals.
-	 */
-	registerPollIntervals() {
-		this.registerPollInterval({
-			id: 'temperatureData',
-			fn: this.getTemperatureData.bind(this),
-			interval: 30000, // 30 sec
-		});
-
-		// this.registerPollInterval({
-		// 	id: 'getGasData',
-		// 	fn: this.getGasData.bind(this),
-		// 	interval: 300000, // 5 min
-		// });
-		//
-		// this.registerPollInterval({
-		// 	id: 'getElectricityData',
-		// 	fn: this.getElectricityData().bind(this),
-		// 	interval: 300000, // 5 min
-		// });
+		// Set agreement and then continue with fetching data
+		await this.setAgreement();
+		await this.getThermostatData();
 	}
 
 	/**
@@ -130,7 +113,7 @@ class ToonDevice extends OAuth2Device {
 	 * This method will retrieve temperature, gas and electricity data from the Toon API.
 	 * @returns {Promise}
 	 */
-	getTemperatureData() {
+	getThermostatData() {
 		let initialized = false;
 		return this.apiCallGet({
 			uri: 'status',
@@ -148,23 +131,80 @@ class ToonDevice extends OAuth2Device {
 				// Check for data
 				if (result) {
 
-					// Check for thermostat information
-					if (result.thermostatInfo) {
+					// Store last update from display, if more than 10 minutes without update consider device offline
+					if (result.hasOwnProperty('lastUpdateFromDisplay')) {
+						this.lastUpdateFromDisplay = new Date(result.lastUpdateFromDisplay);
+						this.log(`getThermostatData() -> last updated: ${this.lastUpdateFromDisplay.toString()}`);
+						if ((new Date()) - this.lastUpdateFromDisplay > OFFLINE_THRESHOLD * 60 * 1000 && this.getAvailable()) {
+							this.log(`getThermostatData() -> last update from display more then ${OFFLINE_THRESHOLD} minutes ago, mark unavailable`);
+							this.setUnavailable(Homey.__('offline'));
+						} else if (!this.getAvailable()) {
+							this.log('getThermostatData() -> received update, mark as available');
+							this.setAvailable();
+						}
+					}
+
+
+					// Check for power usage information
+					if (result.hasOwnProperty('powerUsage')) {
+
+						this.log('getThermostatData() -> powerUsage');
+						this.log(result.powerUsage);
 
 						// Store new values
-						if (typeof result.thermostatInfo.currentDisplayTemp !== 'undefined') {
+						if (result.powerUsage.hasOwnProperty('value')) {
+							this.measurePower = result.powerUsage.value;
+							this.log('getThermostatData() -> powerUsage -> measure_power', this.measurePower);
+							this.setCapabilityValue('measure_power', this.measurePower);
+						}
+
+						if (result.powerUsage.hasOwnProperty('dayUsage')) {
+
+							// If only dayLowUsage is provided use that value
+							if (result.powerUsage.dayUsage === 0 && result.powerUsage.hasOwnProperty('dayLowUsage') && result.powerUsage.dayLowUsage !== 0) {
+								this.meterPower = result.powerUsage.dayLowUsage / 1000; // Wh -> kWh
+							} else {
+								this.meterPower = result.powerUsage.dayUsage / 1000; // Wh -> kWh
+							}
+							this.log('getThermostatData() -> powerUsage -> meter_power', this.meterPower);
+							this.setCapabilityValue('meter_power', this.meterPower);
+						}
+					}
+
+					// Check for gas usage information
+					if (result.hasOwnProperty('gasUsage')) {
+
+						this.log('getThermostatData() -> gasUsage');
+						this.log(result.gasUsage);
+
+						// Store new values
+						if (result.gasUsage.hasOwnProperty('dayUsage')) {
+							this.meterGas = result.gasUsage.dayUsage / 1000; // Wh -> kWh
+							this.log('getThermostatData() -> gasUsage -> meter_gas', this.meterGas);
+							this.setCapabilityValue('meter_gas', this.meterGas);
+						}
+					}
+
+					// Check for thermostat information
+					if (result.hasOwnProperty('thermostatInfo')) {
+
+						this.log('getThermostatData() -> thermostatInfo');
+						this.log(result.thermostatInfo);
+
+						// Store new values
+						if (result.thermostatInfo.hasOwnProperty('currentDisplayTemp')) {
 							this.measureTemperature = Math.round((result.thermostatInfo.currentDisplayTemp / 100) * 10) / 10;
 							// this.log('measure_temperature', this.measureTemperature);
 							this.setCapabilityValue('measure_temperature', this.measureTemperature);
 						}
 
-						if (typeof result.thermostatInfo.currentSetpoint !== 'undefined') {
+						if (result.thermostatInfo.hasOwnProperty('currentSetpoint')) {
 							this.targetTemperature = Math.round((result.thermostatInfo.currentSetpoint / 100) * 10) / 10;
 							// this.log('target_temperature', this.targetTemperature);
 							this.setCapabilityValue('target_temperature', this.targetTemperature);
 						}
 
-						if (typeof result.thermostatInfo.activeState !== 'undefined') {
+						if (result.thermostatInfo.hasOwnProperty('activeState')) {
 							this.temperatureState = _.findKey(this.temperatureStatesMap, { id: result.thermostatInfo.activeState });
 							// this.log('temperature_state', this.temperatureState);
 							this.setCapabilityValue('temperature_state', this.temperatureState);
@@ -172,7 +212,7 @@ class ToonDevice extends OAuth2Device {
 					}
 
 					// Check for updated thermostat states
-					if (result.thermostatStates && result.thermostatStates.hasOwnProperty('state')) {
+					if (result.hasOwnProperty('thermostatStates') && result.thermostatStates.hasOwnProperty('state')) {
 
 						// Update state temperature map
 						const states = result.thermostatStates.state;
@@ -198,36 +238,6 @@ class ToonDevice extends OAuth2Device {
 			})
 			.catch(err => {
 				this.log('failed to get temperature data', err.stack);
-				throw err;
-			});
-	}
-
-	getElectricityData() {
-		return this.getConsumptionElectricity()
-			.then(electricity => {
-				if (typeof electricity !== 'undefined') {
-					this.log('measure_power', electricity);
-					this.measurePower = electricity;
-					this.setCapabilityValue('measure_power', electricity);
-				} else this.log('no new electricity data available');
-			})
-			.catch(err => {
-				this.log('failed to get electricity data', err.stack);
-				throw err;
-			});
-	}
-
-	getGasData() {
-		return this.getConsumptionGas()
-			.then(gas => {
-				if (typeof gas !== 'undefined') {
-					this.log('meter_gas', gas);
-					this.meterGas = gas;
-					this.setCapabilityValue('meter_gas', gas);
-				} else this.log('no new gas data available');
-			})
-			.catch(err => {
-				this.log('failed to get gas data', err.stack);
 				throw err;
 			});
 	}
@@ -298,78 +308,6 @@ class ToonDevice extends OAuth2Device {
 	}
 
 	/**
-	 * Queries the Toon API for the electricity consumption.
-	 */
-	getConsumptionElectricity() {
-		this.log('get consumption electricity');
-
-		return this.apiCallGet({ uri: 'consumption/electricity/flows' })
-			.then(result => {
-				if (result && result.hours) {
-					const latest = _.max(result.hours, entry => entry.timestamp);
-					if (!latest) return null;
-					if (typeof latest.value !== 'undefined') {
-						if (latest.value < 0) latest.value = 0;
-						return latest.value;
-					}
-					return null;
-				}
-				return null;
-			})
-			.catch(err => {
-				this.error('error getConsumptionElectricity', err.stack);
-				throw err;
-			});
-	}
-
-	/**
-	 * Queries the Toon API for the gas consumption.
-	 */
-	getConsumptionGas() {
-		this.log('get consumption gas');
-
-		return this.apiCallGet({ uri: 'consumption/gas/flows' })
-			.then(result => {
-				if (result && result.hours) {
-					const latest = _.max(result.hours, entry => entry.timestamp);
-					if (!latest) return null;
-					if (typeof latest.value !== 'undefined') {
-						if (latest.value < 0) latest.value = 0;
-						return latest.value / 1000;
-					}
-					return null;
-				}
-				return null;
-			})
-			.catch(err => {
-				this.error('error getConsumptionGas', err.stack);
-				return null;
-			});
-	}
-
-	/**
-	 * Fetches all agreements from the API, if there are more
-	 * than one, the user may choose one.
-	 */
-	getAgreements() {
-		this.log('get agreements');
-
-		return this.apiCallGet({ uri: 'agreements' })
-			.then(agreements => {
-				if (agreements) {
-					this.log(`got ${agreements.length} agreements`);
-					return agreements;
-				}
-				this.error('failed to get agreements');
-				throw new Error('failed_to_get_arguments');
-			})
-			.catch(err => {
-				this.error('failed to get agreements', err.stack);
-				throw err;
-			});
-	}
-
-	/**
 	 * Selects an agreement and registers it to this
 	 * Toon object, this is a connection to the device.
 	 * @returns {*}
@@ -386,13 +324,7 @@ class ToonDevice extends OAuth2Device {
 		return this.apiCallPost({ uri: 'agreements' }, { agreementId: this.getData().agreementId })
 			.then(result => {
 				this.log('successful post of agreement');
-
-				// Fetch initial data
-				this.getTemperatureData()
-					.then(() => result)
-					.catch(err => {
-						throw err;
-					});
+				return result;
 			})
 			.catch(err => {
 				this.error('failed to post agreement', err.stack);
@@ -417,13 +349,15 @@ class ToonDevice extends OAuth2Device {
 	 * @returns {*}
 	 */
 	webAPIErrorHandler(err) {
-		this.error('webAPIErrorHandler', err);
+		this.error('webAPIErrorHandler()', err);
 
 		// Detect error that is returned when Toon is offline
 		if (err.name === 'WebAPIServerError' && err.statusCode === 500) {
 
-			if (err.errorResponse.type === 'communicationError' || err.errorResponse.errorCode === 'communicationError') {
-				return this.setUnavailable(Homey.__('offline')).catch(err => this.error('could not setUnavailable()', err));
+			if (err.errorResponse.type === 'communicationError' || err.errorResponse.errorCode === 'communicationError' ||
+				err.errorResponse.description === 'Error communicating with Toon') {
+				this.log('webAPIErrorHandler() -> communication error, mark as unavailable');
+				return this.setUnavailable(Homey.__('offline'));
 			}
 
 			// Set agreement and retry failed request
