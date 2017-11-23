@@ -52,7 +52,7 @@ class ToonDevice extends OAuth2Device {
 		});
 
 		// Migrate from unknown expiresIn state by refreshing tokens immediately
-		if (semver.lt(Homey.app.manifest.version, '1.3.5') && this.oauth2Account) {
+		if (semver.lt(Homey.app.manifest.version, '1.3.6') && this.oauth2Account) {
 			this.log('migrate expiresIn by refreshing');
 			await this.oauth2Account.refreshAccessTokens();
 		}
