@@ -2,6 +2,7 @@
 
 const Homey = require('homey');
 const _ = require('underscore');
+const semver = require('semver');
 const OAuth2Device = require('homey-wifidriver').OAuth2Device;
 
 const OFFLINE_THRESHOLD = 10; // in minutes
@@ -32,11 +33,11 @@ class ToonDevice extends OAuth2Device {
 
 		// Keep track of temperature states
 		this.temperatureStatesMap = {
-			comfort: { id: 0, temperature: 20, },
-			home: { id: 1, temperature: 18, },
-			sleep: { id: 2, temperature: 15, },
-			away: { id: 3, temperature: 12, },
-			none: { id: -1, }
+			comfort: { id: 0, temperature: 20 },
+			home: { id: 1, temperature: 18 },
+			sleep: { id: 2, temperature: 15 },
+			away: { id: 3, temperature: 12 },
+			none: { id: -1 },
 		};
 
 		this.setUnavailable(Homey.__('connecting'));
@@ -49,6 +50,12 @@ class ToonDevice extends OAuth2Device {
 			fn: this.getThermostatData.bind(this),
 			interval: 15 * 1000,
 		});
+
+		// Migrate from unknown expiresIn state by refreshing tokens immediately
+		if (semver.lt(Homey.app.manifest.version, '1.3.5') && this.oauth2Account) {
+			this.log('migrate expiresIn by refreshing');
+			await this.oauth2Account.refreshAccessTokens();
+		}
 
 		// Register capability listeners
 		this.registerCapabilityListener('target_temperature', this.onCapabilityTargetTemperature.bind(this));
@@ -216,7 +223,7 @@ class ToonDevice extends OAuth2Device {
 
 						// Update state temperature map
 						const states = result.thermostatStates.state;
-						for (let i in this.temperatureStatesMap) {
+						for (const i in this.temperatureStatesMap) {
 							const state = this.temperatureStatesMap[i];
 							if (state.hasOwnProperty('temperature')) {
 								state.temperature = Math.round((_.findWhere(states, { id: state.id }).tempValue / 100) * 10) / 10;

@@ -5,9 +5,10 @@
   "main": "app.js",
   "dependencies": {
     "homey-log": "^1.0.5",
-    "homey-wifidriver": "^1.0.5",
+    "homey-wifidriver": "git+https://github.com/athombv/node-homey-wifidriver.git#master",
     "request": "~2.81.0",
     "request-promise-native": "~1.0.4",
+    "semver": "^5.4.1",
     "underscore": "~1.8.3"
   },
   "devDependencies": {},

@@ -7,6 +7,7 @@ Set the target temperature, read the room temperature and display your electrici
 DISCLAIMER: This application uses the Toon® API but has not been developed, certified or otherwise approved on behalf of or on the instructions of Toon.
 
 ###Changelog
+- 1.3.4: Add workaround for failing tokens refresh (might need to re-add Toon once).
 - 1.3.3: Fix Flow tokens for gas and electricity Flow cards.
 - 1.3.2: Add gas and electricity readings as displayed on Toon itself (current power usage, cumulative power usage per day, cumulative gas usage per day). Note: for these readings to show up in the mobile app Toon needs to be re-paired to Homey.
 - 1.2.3: Immediately update target temperature when temperature state changed via Homey. 
