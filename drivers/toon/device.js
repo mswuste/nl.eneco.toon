@@ -2,7 +2,6 @@
 
 const Homey = require('homey');
 const _ = require('underscore');
-const semver = require('semver');
 const OAuth2Device = require('homey-wifidriver').OAuth2Device;
 
 const OFFLINE_THRESHOLD = 10; // in minutes
@@ -51,10 +50,17 @@ class ToonDevice extends OAuth2Device {
 			interval: 15 * 1000,
 		});
 
-		// Migrate from unknown expiresIn state by refreshing tokens immediately
-		if (semver.lt(Homey.app.manifest.version, '1.3.6') && this.oauth2Account) {
-			this.log('migrate expiresIn by refreshing');
+		// Register poll interval for refreshing access tokens
+		this.registerPollInterval({
+			id: 'refreshTokens',
+			fn: this.oauth2Account.refreshAccessTokens.bind(this.oauth2Account),
+			interval: 6 * 60 * 60 * 1000, // 6 hours
+		});
+
+		try {
 			await this.oauth2Account.refreshAccessTokens();
+		} catch (err) {
+			this.error('onInit() -> refresh access tokens failed', err);
 		}
 
 		// Register capability listeners
@@ -145,8 +151,8 @@ class ToonDevice extends OAuth2Device {
 						if ((new Date()) - this.lastUpdateFromDisplay > OFFLINE_THRESHOLD * 60 * 1000 && this.getAvailable()) {
 							this.log(`getThermostatData() -> last update from display more then ${OFFLINE_THRESHOLD} minutes ago, mark unavailable`);
 							this.setUnavailable(Homey.__('offline'));
-						} else if (!this.getAvailable()) {
-							this.log('getThermostatData() -> received update, mark as available');
+						} else {
+							this.log('getThermostatData() -> received update');
 							this.setAvailable();
 						}
 					}
@@ -340,6 +346,34 @@ class ToonDevice extends OAuth2Device {
 	}
 
 	/**
+	 * Method that overrides device.setAvailable to reset a unavailable counter.
+	 * @returns {*|Promise}
+	 */
+	setAvailable() {
+		this._unavailableCounter = 0;
+		if (this.getAvailable() === false) {
+			this.log('mark as available');
+			return super.setAvailable();
+		}
+		return Promise.resolve();
+	}
+
+	/**
+	 * Method that overrides device.setUnavailable so that the super only gets called when setUnavailable is called
+	 * more than three times.
+	 * @param args
+	 * @returns {*}
+	 */
+	setUnavailable(...args) {
+		if (this._unavailableCounter > 3) {
+			this.log('mark as unavailable');
+			return super.setUnavailable(args);
+		}
+		this._unavailableCounter = this._unavailableCounter + 1;
+		return Promise.resolve();
+	}
+
+	/**
 	 * Response handler middleware, which will be called on each successful API request.
 	 * @param res
 	 * @returns {*}
@@ -363,7 +397,7 @@ class ToonDevice extends OAuth2Device {
 
 			if (err.errorResponse.type === 'communicationError' || err.errorResponse.errorCode === 'communicationError' ||
 				err.errorResponse.description === 'Error communicating with Toon') {
-				this.log('webAPIErrorHandler() -> communication error, mark as unavailable');
+				this.log('webAPIErrorHandler() -> communication error');
 				return this.setUnavailable(Homey.__('offline'));
 			}
 
